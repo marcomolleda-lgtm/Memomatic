@@ -310,15 +310,17 @@
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
+      let final = '';
       let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         const chunk = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += chunk + ' ';
+          final += chunk + ' ';
         } else {
           interim += chunk;
         }
       }
+      finalTranscript = final;
       statusEl.textContent = (finalTranscript + interim).trim() || 'Escuchando...';
     };
 
@@ -339,9 +341,18 @@
     };
 
     recognition.onend = () => {
+      // El reconocimiento ha terminado por sí solo (silencio prolongado).
       if (listening) {
-        // el navegador a veces corta solo; si el usuario no ha pulsado stop, reiniciamos
-        try { recognition.start(); } catch(e) {}
+        listening = false;
+        stage.classList.remove('listening');
+        const text = finalTranscript.trim();
+        if (text) {
+          transcriptBox.value = text;
+          editor.classList.add('show');
+          statusEl.textContent = 'Revisa tu nota abajo';
+        } else {
+          statusEl.textContent = 'Toca para empezar a hablar';
+        }
       }
     };
   }

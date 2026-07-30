@@ -346,6 +346,32 @@
     margin-top: 14px;
   }
 
+  .folder-select-row{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    font-size: 15px;
+    color: var(--muted);
+  }
+  .folder-select-row select{
+    flex: 1;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink-3);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 16px;
+    font-family: inherit;
+  }
+  .btn-delete-note{
+    width: 100%;
+    margin-top: 10px;
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red);
+  }
+
   .unsupported{
     margin: 20px;
     background: var(--red);
@@ -360,8 +386,7 @@
 <body>
 
 <header>
-  <h1>Notas de Voz</h1>
-  <p>Toca el micrófono y dicta tu nota</p>
+  <h1>Memomatic</h1>
 </header>
 
 <div id="unsupported" class="unsupported">
@@ -382,7 +407,7 @@
       </svg>
     </button>
   </div>
-  <div class="status" id="status">Toca para empezar a hablar</div>
+  <div class="status" id="status"></div>
   <div class="waveform">
     <span></span><span></span><span></span><span></span><span></span>
   </div>
@@ -390,6 +415,10 @@
 
 <div class="editor" id="editor">
   <textarea id="transcriptBox" placeholder="Aquí aparecerá lo que dictes..."></textarea>
+  <div class="folder-select-row">
+    <label for="targetFolderSelect">Guardar en:</label>
+    <select id="targetFolderSelect"></select>
+  </div>
   <div class="editor-actions">
     <button class="btn btn-discard" id="discardBtn">Descartar</button>
     <button class="btn btn-save" id="saveBtn">Guardar nota</button>
@@ -397,7 +426,6 @@
 </div>
 
 <div class="folders-section">
-  <h2>Carpetas</h2>
   <div class="folders-row" id="foldersRow"></div>
 </div>
 
@@ -419,10 +447,15 @@
       <button class="tool-btn" data-size="5" type="button">A+</button>
     </div>
     <div class="note-editable" id="noteEditable" contenteditable="true"></div>
+    <div class="folder-select-row">
+      <label for="moveFolderSelect">Carpeta:</label>
+      <select id="moveFolderSelect"></select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-discard" id="modalCancel">Cancelar</button>
       <button class="btn btn-save" id="modalSave">Guardar cambios</button>
     </div>
+    <button class="btn btn-delete-note" id="modalDelete">Eliminar nota</button>
   </div>
 </div>
 
@@ -444,13 +477,18 @@
   const boldBtn = document.getElementById('boldBtn');
   const modalCancel = document.getElementById('modalCancel');
   const modalSave = document.getElementById('modalSave');
+  const modalDelete = document.getElementById('modalDelete');
+  const targetFolderSelect = document.getElementById('targetFolderSelect');
+  const moveFolderSelect = document.getElementById('moveFolderSelect');
 
-  let activeFolderId = 'default';
+  let activeFolderId = 'all';
   let editingNoteId = null;
 
   let recognition = null;
   let listening = false;
-  let finalTranscript = '';
+  let accumulated = '';       // texto ya confirmado de sesiones anteriores (antes de una pausa)
+  let sessionFinal = '';      // texto confirmado de la sesión actual
+  let userStopped = false;    // true cuando el usuario ha pulsado el botón para terminar
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -466,7 +504,7 @@
   } else {
     recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
@@ -480,11 +518,13 @@
           interim += chunk;
         }
       }
-      finalTranscript = final;
-      statusEl.textContent = (finalTranscript + interim).trim() || 'Escuchando...';
+      sessionFinal = final;
+      statusEl.textContent = (accumulated + sessionFinal + interim).trim() || 'Escuchando...';
     };
 
     recognition.onerror = (event) => {
+      // 'no-speech' y 'aborted' ocurren simplemente por una pausa; se reinicia solo en onend.
+      if (event.error === 'no-speech' || event.error === 'aborted') return;
       let msg = 'No se ha entendido, inténtalo de nuevo';
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         msg = 'Permiso de micrófono denegado. Revisa los permisos del sitio en Chrome.';
@@ -492,8 +532,6 @@
         msg = 'No se encuentra ningún micrófono disponible.';
       } else if (event.error === 'network') {
         msg = 'Sin conexión. El dictado por voz necesita internet.';
-      } else if (event.error === 'no-speech') {
-        msg = 'No se ha captado ninguna voz. Inténtalo de nuevo.';
       }
       statusEl.textContent = msg;
       listening = false;
@@ -501,24 +539,34 @@
     };
 
     recognition.onend = () => {
-      // El reconocimiento ha terminado por sí solo (silencio prolongado).
-      if (listening) {
+      if (userStopped) {
+        // El usuario ha pedido terminar: cerramos y mostramos la nota para revisar.
         listening = false;
         stage.classList.remove('listening');
-        const text = finalTranscript.trim();
+        const text = (accumulated + sessionFinal).trim();
+        accumulated = '';
+        sessionFinal = '';
         if (text) {
           transcriptBox.value = text;
+          populateTargetFolder();
           editor.classList.add('show');
           statusEl.textContent = 'Revisa tu nota abajo';
         } else {
-          statusEl.textContent = 'Toca para empezar a hablar';
+          statusEl.textContent = '';
         }
+      } else if (listening) {
+        // Pausa detectada: guardamos lo confirmado y reiniciamos la escucha sin cerrar nada.
+        accumulated += sessionFinal;
+        sessionFinal = '';
+        try { recognition.start(); } catch(e) {}
       }
     };
   }
 
   function startListening(){
-    finalTranscript = '';
+    accumulated = '';
+    sessionFinal = '';
+    userStopped = false;
     editor.classList.remove('show');
     listening = true;
     stage.classList.add('listening');
@@ -527,17 +575,8 @@
   }
 
   function stopListening(){
-    listening = false;
-    stage.classList.remove('listening');
+    userStopped = true;
     try { recognition.stop(); } catch(e) {}
-    const text = finalTranscript.trim();
-    if (text) {
-      transcriptBox.value = text;
-      editor.classList.add('show');
-      statusEl.textContent = 'Revisa tu nota abajo';
-    } else {
-      statusEl.textContent = 'Toca para empezar a hablar';
-    }
   }
 
   micBtn.addEventListener('click', () => {
@@ -552,7 +591,7 @@
   discardBtn.addEventListener('click', () => {
     editor.classList.remove('show');
     transcriptBox.value = '';
-    statusEl.textContent = 'Toca para empezar a hablar';
+    statusEl.textContent = '';
   });
 
   saveBtn.addEventListener('click', () => {
@@ -562,7 +601,7 @@
     notes.unshift({
       id: Date.now().toString(),
       html: escapeHtml(text),
-      folderId: activeFolderId,
+      folderId: targetFolderSelect.value || 'default',
       createdAt: new Date().toISOString()
     });
     saveNotes(notes);
@@ -571,7 +610,7 @@
     transcriptBox.value = '';
     statusEl.textContent = 'Nota guardada';
     setTimeout(() => {
-      if (!listening) statusEl.textContent = 'Toca para empezar a hablar';
+      if (!listening) statusEl.textContent = '';
     }, 1800);
   });
 
@@ -608,7 +647,8 @@
 
   function renderFolders(){
     const folders = loadFolders();
-    foldersRow.innerHTML = folders.map(f => `
+    const chips = [{ id: 'all', name: 'Todas' }, ...folders];
+    foldersRow.innerHTML = chips.map(f => `
       <button class="folder-chip ${f.id === activeFolderId ? 'active' : ''}" data-folder="${f.id}">${escapeHtml(f.name)}</button>
     `).join('') + '<button class="folder-add" id="addFolderBtn" aria-label="Nueva carpeta">+</button>';
 
@@ -616,6 +656,7 @@
       chip.addEventListener('click', () => {
         activeFolderId = chip.getAttribute('data-folder');
         renderFolders();
+        renderNotes();
       });
     });
     document.getElementById('addFolderBtn').addEventListener('click', addFolder);
@@ -628,13 +669,23 @@
     const id = 'f' + Date.now().toString();
     folders.push({ id, name: name.trim() });
     saveFolders(folders);
-    activeFolderId = id;
     renderFolders();
   }
 
   function folderName(id){
     const f = loadFolders().find(x => x.id === id);
     return f ? f.name : 'Por defecto';
+  }
+
+  function fillFolderSelect(selectEl, selectedId){
+    const folders = loadFolders();
+    selectEl.innerHTML = folders.map(f =>
+      `<option value="${f.id}" ${f.id === selectedId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`
+    ).join('');
+  }
+
+  function populateTargetFolder(){
+    fillFolderSelect(targetFolderSelect, 'default');
   }
 
   function formatDate(iso){
@@ -647,9 +698,12 @@
   }
 
   function renderNotes(){
-    const notes = loadNotes().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    let notes = loadNotes().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    if (activeFolderId !== 'all') {
+      notes = notes.filter(n => (n.folderId || 'default') === activeFolderId);
+    }
     if (notes.length === 0) {
-      notesList.innerHTML = '<div class="empty">Todavía no has dictado ninguna nota</div>';
+      notesList.innerHTML = '<div class="empty">Todavía no hay notas aquí</div>';
       return;
     }
     notesList.innerHTML = notes.map(n => `
@@ -683,6 +737,7 @@
     if (!note) return;
     editingNoteId = id;
     noteEditable.innerHTML = note.html;
+    fillFolderSelect(moveFolderSelect, note.folderId || 'default');
     modalOverlay.classList.add('show');
   }
 
@@ -699,9 +754,16 @@
     const note = notes.find(n => n.id === editingNoteId);
     if (note) {
       note.html = noteEditable.innerHTML;
+      note.folderId = moveFolderSelect.value || 'default';
       saveNotes(notes);
       renderNotes();
     }
+    closeEditor();
+  });
+
+  modalDelete.addEventListener('click', () => {
+    if (!editingNoteId) return;
+    deleteNote(editingNoteId);
     closeEditor();
   });
 

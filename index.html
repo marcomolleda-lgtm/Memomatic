@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Notas de Voz</title>
+<title>Memomatic</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -197,6 +197,31 @@
     flex: 1;
     font-size: 18px;
   }
+  .note-text.editing-text{
+    cursor: text;
+  }
+  .note-edit-textarea{
+    width: 100%;
+    min-height: 90px;
+    background: var(--ink);
+    border: 1px solid var(--ink-3);
+    border-radius: 10px;
+    color: var(--paper);
+    font-size: 18px;
+    font-family: inherit;
+    padding: 10px;
+    resize: vertical;
+    outline: none;
+  }
+  .note-edit-actions{
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .note-edit-actions .btn{
+    padding: 10px 12px;
+    font-size: 15px;
+  }
   .note-time{
     display: block;
     color: var(--amber);
@@ -204,15 +229,22 @@
     margin-top: 6px;
     font-weight: 600;
   }
-  .del-btn{
+  .note-actions{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+  .del-btn, .edit-btn{
     background: transparent;
     border: none;
     color: var(--muted);
     padding: 4px;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
   }
   .del-btn:active{ color: var(--red); }
+  .edit-btn:active{ color: var(--amber); }
 
   .empty{
     color: var(--muted);
@@ -235,8 +267,7 @@
 <body>
 
 <header>
-  <h1>Notas de Voz</h1>
-  <p>Toca el micrófono y dicta tu nota</p>
+  <h1>Memomatic</h1>
 </header>
 
 <div id="unsupported" class="unsupported">
@@ -257,7 +288,7 @@
       </svg>
     </button>
   </div>
-  <div class="status" id="status">Toca para empezar a hablar</div>
+  <div class="status" id="status"></div>
   <div class="waveform">
     <span></span><span></span><span></span><span></span><span></span>
   </div>
@@ -372,7 +403,7 @@
       editor.classList.add('show');
       statusEl.textContent = 'Revisa tu nota abajo';
     } else {
-      statusEl.textContent = 'Toca para empezar a hablar';
+      statusEl.textContent = '';
     }
   }
 
@@ -411,7 +442,7 @@
   discardBtn.addEventListener('click', () => {
     editor.classList.remove('show');
     transcriptBox.value = '';
-    statusEl.textContent = 'Toca para empezar a hablar';
+    statusEl.textContent = '';
   });
 
   saveBtn.addEventListener('click', () => {
@@ -429,7 +460,7 @@
     transcriptBox.value = '';
     statusEl.textContent = 'Nota guardada';
     setTimeout(() => {
-      if (!listening) statusEl.textContent = 'Toca para empezar a hablar';
+      if (!listening) statusEl.textContent = '';
     }, 1800);
   });
 
@@ -451,6 +482,31 @@
     renderNotes();
   }
 
+  let editingNoteId = null;
+
+  function startEditNote(id){
+    editingNoteId = id;
+    renderNotes();
+  }
+
+  function cancelEditNote(){
+    editingNoteId = null;
+    renderNotes();
+  }
+
+  function saveEditNote(id){
+    const textarea = document.getElementById('edit-' + id);
+    if (!textarea) return;
+    const newText = textarea.value.trim();
+    if (!newText) return;
+    const notes = loadNotes();
+    const note = notes.find(n => n.id === id);
+    if (note) note.text = newText;
+    saveNotes(notes);
+    editingNoteId = null;
+    renderNotes();
+  }
+
   function formatDate(iso){
     const d = new Date(iso);
     const today = new Date();
@@ -466,15 +522,34 @@
       notesList.innerHTML = '<div class="empty">Todavía no has dictado ninguna nota</div>';
       return;
     }
-    notesList.innerHTML = notes.map(n => `
+    notesList.innerHTML = notes.map(n => {
+      if (editingNoteId === n.id) {
+        return `
+      <div class="note-card">
+        <div class="note-text">
+          <textarea class="note-edit-textarea" id="edit-${n.id}">${escapeHtml(n.text)}</textarea>
+          <div class="note-edit-actions">
+            <button class="btn btn-discard" onclick="cancelEditNote()">Cancelar</button>
+            <button class="btn btn-save" onclick="saveEditNote('${n.id}')">Guardar cambios</button>
+          </div>
+          <span class="note-time">${formatDate(n.createdAt)}</span>
+        </div>
+      </div>
+        `;
+      }
+      return `
       <div class="note-card">
         <div class="note-text">
           ${escapeHtml(n.text)}
           <span class="note-time">${formatDate(n.createdAt)}</span>
         </div>
-        <button class="del-btn" onclick="deleteNote('${n.id}')" aria-label="Borrar nota">✕</button>
+        <div class="note-actions">
+          <button class="edit-btn" onclick="startEditNote('${n.id}')" aria-label="Editar nota">✎</button>
+          <button class="del-btn" onclick="deleteNote('${n.id}')" aria-label="Borrar nota">✕</button>
+        </div>
       </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   function escapeHtml(str){

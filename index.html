@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Memomatic</title>
+<title>Notas de Voz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -171,11 +171,11 @@
   .btn-save{ background: var(--teal); color: var(--ink); }
   .btn-discard{ background: transparent; color: var(--muted); border: 1px solid var(--ink-3); }
 
-  /* --- Agenda list --- */
-  .agenda{
+  /* --- Folders --- */
+  .folders-section{
     margin: 28px 20px 0;
   }
-  .agenda h2{
+  .folders-section h2{
     font-family: "Jost", sans-serif;
     font-size: 18px;
     font-weight: 600;
@@ -183,6 +183,49 @@
     margin: 0 0 12px;
     letter-spacing: 0.03em;
     text-transform: uppercase;
+  }
+  .folders-row{
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .folder-chip{
+    flex: 0 0 auto;
+    background: var(--ink-2);
+    color: var(--muted);
+    border: 1px solid var(--ink-3);
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .folder-chip.active{
+    background: var(--amber);
+    color: var(--ink);
+    border-color: var(--amber);
+  }
+  .folder-add{
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--ink-2);
+    border: 1px solid var(--ink-3);
+    color: var(--amber);
+    font-size: 22px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  /* --- Agenda list --- */
+  .agenda{
+    margin: 24px 20px 0;
   }
   .note-card{
     background: var(--ink-2);
@@ -196,61 +239,111 @@
   .note-text{
     flex: 1;
     font-size: 18px;
+    word-break: break-word;
   }
-  .note-text.editing-text{
-    cursor: text;
-  }
-  .note-edit-textarea{
-    width: 100%;
-    min-height: 90px;
-    background: var(--ink);
-    border: 1px solid var(--ink-3);
-    border-radius: 10px;
-    color: var(--paper);
-    font-size: 18px;
-    font-family: inherit;
-    padding: 10px;
-    resize: vertical;
-    outline: none;
-  }
-  .note-edit-actions{
+  .note-meta{
     display: flex;
-    gap: 8px;
-    margin-top: 10px;
-  }
-  .note-edit-actions .btn{
-    padding: 10px 12px;
-    font-size: 15px;
+    gap: 10px;
+    align-items: center;
+    margin-top: 8px;
   }
   .note-time{
-    display: block;
     color: var(--amber);
     font-size: 14px;
-    margin-top: 6px;
     font-weight: 600;
   }
-  .note-actions{
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
+  .note-folder{
+    color: var(--muted);
+    font-size: 13px;
+    background: var(--ink-3);
+    border-radius: 999px;
+    padding: 2px 10px;
   }
-  .del-btn, .edit-btn{
+  .del-btn{
     background: transparent;
     border: none;
     color: var(--muted);
     padding: 4px;
-    font-size: 18px;
+    font-size: 20px;
     line-height: 1;
   }
   .del-btn:active{ color: var(--red); }
-  .edit-btn:active{ color: var(--amber); }
 
   .empty{
     color: var(--muted);
     text-align: center;
     padding: 30px 20px;
     font-size: 16px;
+  }
+
+  /* --- Note edit modal --- */
+  .modal-overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: flex-end;
+    z-index: 50;
+  }
+  .modal-overlay.show{ display: flex; }
+  .modal-sheet{
+    background: var(--ink-2);
+    width: 100%;
+    max-height: 88vh;
+    border-radius: 20px 20px 0 0;
+    padding: 18px 18px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-title{
+    font-family: "Jost", sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 12px;
+  }
+  .toolbar{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .tool-btn{
+    background: var(--ink-3);
+    color: var(--paper);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: inherit;
+  }
+  .tool-btn.bold-b{ font-weight: 900; }
+  .color-dot{
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--ink-3);
+    padding: 0;
+  }
+  .color-dot[data-color="paper"]{ background: var(--paper); }
+  .color-dot[data-color="amber"]{ background: var(--amber); }
+  .color-dot[data-color="teal"]{ background: var(--teal); }
+  .color-dot[data-color="red"]{ background: var(--red); }
+
+  .note-editable{
+    flex: 1;
+    min-height: 140px;
+    background: var(--ink);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 18px;
+    outline: none;
+    overflow-y: auto;
+  }
+  .modal-actions{
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
   }
 
   .unsupported{
@@ -267,7 +360,8 @@
 <body>
 
 <header>
-  <h1>Memomatic</h1>
+  <h1>Notas de Voz</h1>
+  <p>Toca el micrófono y dicta tu nota</p>
 </header>
 
 <div id="unsupported" class="unsupported">
@@ -288,7 +382,7 @@
       </svg>
     </button>
   </div>
-  <div class="status" id="status"></div>
+  <div class="status" id="status">Toca para empezar a hablar</div>
   <div class="waveform">
     <span></span><span></span><span></span><span></span><span></span>
   </div>
@@ -302,13 +396,39 @@
   </div>
 </div>
 
+<div class="folders-section">
+  <h2>Carpetas</h2>
+  <div class="folders-row" id="foldersRow"></div>
+</div>
+
 <div class="agenda">
-  <h2>Tus notas</h2>
   <div id="notesList"></div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-sheet">
+    <h3 class="modal-title">Editar nota</h3>
+    <div class="toolbar">
+      <button class="tool-btn bold-b" id="boldBtn" type="button">N</button>
+      <button class="tool-btn color-dot" data-color="paper" data-value="#F4F1EA" type="button" aria-label="Color texto normal"></button>
+      <button class="tool-btn color-dot" data-color="amber" data-value="#F2A94D" type="button" aria-label="Color ámbar"></button>
+      <button class="tool-btn color-dot" data-color="teal" data-value="#6FCF97" type="button" aria-label="Color verde"></button>
+      <button class="tool-btn color-dot" data-color="red" data-value="#E76F6F" type="button" aria-label="Color rojo"></button>
+      <button class="tool-btn" data-size="2" type="button">A-</button>
+      <button class="tool-btn" data-size="3" type="button">A</button>
+      <button class="tool-btn" data-size="5" type="button">A+</button>
+    </div>
+    <div class="note-editable" id="noteEditable" contenteditable="true"></div>
+    <div class="modal-actions">
+      <button class="btn btn-discard" id="modalCancel">Cancelar</button>
+      <button class="btn btn-save" id="modalSave">Guardar cambios</button>
+    </div>
+  </div>
 </div>
 
 <script>
   const STORAGE_KEY = 'voicenotes_v1';
+  const FOLDERS_KEY = 'voicenotes_folders_v1';
   const stage = document.getElementById('stage');
   const micBtn = document.getElementById('micBtn');
   const statusEl = document.getElementById('status');
@@ -318,12 +438,19 @@
   const discardBtn = document.getElementById('discardBtn');
   const notesList = document.getElementById('notesList');
   const unsupported = document.getElementById('unsupported');
+  const foldersRow = document.getElementById('foldersRow');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const noteEditable = document.getElementById('noteEditable');
+  const boldBtn = document.getElementById('boldBtn');
+  const modalCancel = document.getElementById('modalCancel');
+  const modalSave = document.getElementById('modalSave');
+
+  let activeFolderId = 'default';
+  let editingNoteId = null;
 
   let recognition = null;
-  let listening = false;       // el usuario quiere seguir escuchando (botón activo)
-  let sessionActive = false;   // hay una sesión de reconocimiento en curso ahora mismo
-  let finalTranscript = '';    // texto final acumulado entre sesiones
-  let stoppedByUser = false;   // para distinguir "paro yo" de "paró solo"
+  let listening = false;
+  let finalTranscript = '';
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -339,31 +466,25 @@
   } else {
     recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
-    // En Android, "continuous = true" hace que el motor reinicie la
-    // transcripción internamente cada pocos segundos y repita frases ya
-    // dichas. Por eso usamos continuous = false y reiniciamos nosotros
-    // mismos frase a frase (ver onend más abajo), acumulando el texto.
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
+      let final = '';
       let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         const chunk = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += chunk + ' ';
+          final += chunk + ' ';
         } else {
           interim += chunk;
         }
       }
+      finalTranscript = final;
       statusEl.textContent = (finalTranscript + interim).trim() || 'Escuchando...';
     };
 
     recognition.onerror = (event) => {
-      if (event.error === 'no-speech' || event.error === 'aborted') {
-        // Silencio breve: no es un error real, dejamos que onend decida si reiniciar.
-        return;
-      }
       let msg = 'No se ha entendido, inténtalo de nuevo';
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         msg = 'Permiso de micrófono denegado. Revisa los permisos del sitio en Chrome.';
@@ -371,6 +492,8 @@
         msg = 'No se encuentra ningún micrófono disponible.';
       } else if (event.error === 'network') {
         msg = 'Sin conexión. El dictado por voz necesita internet.';
+      } else if (event.error === 'no-speech') {
+        msg = 'No se ha captado ninguna voz. Inténtalo de nuevo.';
       }
       statusEl.textContent = msg;
       listening = false;
@@ -378,55 +501,42 @@
     };
 
     recognition.onend = () => {
-      sessionActive = false;
-      if (listening && !stoppedByUser) {
-        // El usuario sigue queriendo dictar: relanzamos una nueva sesión
-        // (esto simula "continuo" de forma segura, sin repeticiones).
-        try {
-          recognition.start();
-          sessionActive = true;
-        } catch (e) {
-          finishAndShowEditor();
+      // El reconocimiento ha terminado por sí solo (silencio prolongado).
+      if (listening) {
+        listening = false;
+        stage.classList.remove('listening');
+        const text = finalTranscript.trim();
+        if (text) {
+          transcriptBox.value = text;
+          editor.classList.add('show');
+          statusEl.textContent = 'Revisa tu nota abajo';
+        } else {
+          statusEl.textContent = 'Toca para empezar a hablar';
         }
-      } else if (listening && stoppedByUser) {
-        finishAndShowEditor();
       }
     };
-  }
-
-  function finishAndShowEditor(){
-    listening = false;
-    stage.classList.remove('listening');
-    const text = finalTranscript.trim();
-    if (text) {
-      transcriptBox.value = text;
-      editor.classList.add('show');
-      statusEl.textContent = 'Revisa tu nota abajo';
-    } else {
-      statusEl.textContent = '';
-    }
   }
 
   function startListening(){
     finalTranscript = '';
     editor.classList.remove('show');
     listening = true;
-    stoppedByUser = false;
     stage.classList.add('listening');
     statusEl.textContent = 'Escuchando...';
-    try {
-      recognition.start();
-      sessionActive = true;
-    } catch(e) {}
+    try { recognition.start(); } catch(e) {}
   }
 
   function stopListening(){
-    stoppedByUser = true;
-    if (sessionActive) {
-      try { recognition.stop(); } catch(e) {}
-      // finishAndShowEditor() se llamará desde onend
+    listening = false;
+    stage.classList.remove('listening');
+    try { recognition.stop(); } catch(e) {}
+    const text = finalTranscript.trim();
+    if (text) {
+      transcriptBox.value = text;
+      editor.classList.add('show');
+      statusEl.textContent = 'Revisa tu nota abajo';
     } else {
-      finishAndShowEditor();
+      statusEl.textContent = 'Toca para empezar a hablar';
     }
   }
 
@@ -442,7 +552,7 @@
   discardBtn.addEventListener('click', () => {
     editor.classList.remove('show');
     transcriptBox.value = '';
-    statusEl.textContent = '';
+    statusEl.textContent = 'Toca para empezar a hablar';
   });
 
   saveBtn.addEventListener('click', () => {
@@ -451,7 +561,8 @@
     const notes = loadNotes();
     notes.unshift({
       id: Date.now().toString(),
-      text: text,
+      html: escapeHtml(text),
+      folderId: activeFolderId,
       createdAt: new Date().toISOString()
     });
     saveNotes(notes);
@@ -460,7 +571,7 @@
     transcriptBox.value = '';
     statusEl.textContent = 'Nota guardada';
     setTimeout(() => {
-      if (!listening) statusEl.textContent = '';
+      if (!listening) statusEl.textContent = 'Toca para empezar a hablar';
     }, 1800);
   });
 
@@ -482,29 +593,48 @@
     renderNotes();
   }
 
-  let editingNoteId = null;
-
-  function startEditNote(id){
-    editingNoteId = id;
-    renderNotes();
+  /* --- Folders --- */
+  function loadFolders(){
+    try {
+      const stored = JSON.parse(localStorage.getItem(FOLDERS_KEY));
+      if (stored && stored.length) return stored;
+    } catch(e) {}
+    return [{ id: 'default', name: 'Por defecto' }];
   }
 
-  function cancelEditNote(){
-    editingNoteId = null;
-    renderNotes();
+  function saveFolders(folders){
+    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
   }
 
-  function saveEditNote(id){
-    const textarea = document.getElementById('edit-' + id);
-    if (!textarea) return;
-    const newText = textarea.value.trim();
-    if (!newText) return;
-    const notes = loadNotes();
-    const note = notes.find(n => n.id === id);
-    if (note) note.text = newText;
-    saveNotes(notes);
-    editingNoteId = null;
-    renderNotes();
+  function renderFolders(){
+    const folders = loadFolders();
+    foldersRow.innerHTML = folders.map(f => `
+      <button class="folder-chip ${f.id === activeFolderId ? 'active' : ''}" data-folder="${f.id}">${escapeHtml(f.name)}</button>
+    `).join('') + '<button class="folder-add" id="addFolderBtn" aria-label="Nueva carpeta">+</button>';
+
+    foldersRow.querySelectorAll('.folder-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        activeFolderId = chip.getAttribute('data-folder');
+        renderFolders();
+      });
+    });
+    document.getElementById('addFolderBtn').addEventListener('click', addFolder);
+  }
+
+  function addFolder(){
+    const name = window.prompt('Nombre de la nueva carpeta:');
+    if (!name || !name.trim()) return;
+    const folders = loadFolders();
+    const id = 'f' + Date.now().toString();
+    folders.push({ id, name: name.trim() });
+    saveFolders(folders);
+    activeFolderId = id;
+    renderFolders();
+  }
+
+  function folderName(id){
+    const f = loadFolders().find(x => x.id === id);
+    return f ? f.name : 'Por defecto';
   }
 
   function formatDate(iso){
@@ -517,40 +647,82 @@
   }
 
   function renderNotes(){
-    const notes = loadNotes();
+    const notes = loadNotes().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     if (notes.length === 0) {
       notesList.innerHTML = '<div class="empty">Todavía no has dictado ninguna nota</div>';
       return;
     }
-    notesList.innerHTML = notes.map(n => {
-      if (editingNoteId === n.id) {
-        return `
-      <div class="note-card">
+    notesList.innerHTML = notes.map(n => `
+      <div class="note-card" data-note="${n.id}">
         <div class="note-text">
-          <textarea class="note-edit-textarea" id="edit-${n.id}">${escapeHtml(n.text)}</textarea>
-          <div class="note-edit-actions">
-            <button class="btn btn-discard" onclick="cancelEditNote()">Cancelar</button>
-            <button class="btn btn-save" onclick="saveEditNote('${n.id}')">Guardar cambios</button>
+          <div>${n.html || escapeHtml(n.text || '')}</div>
+          <div class="note-meta">
+            <span class="note-time">${formatDate(n.createdAt)}</span>
+            <span class="note-folder">${escapeHtml(folderName(n.folderId))}</span>
           </div>
-          <span class="note-time">${formatDate(n.createdAt)}</span>
         </div>
+        <button class="del-btn" data-del="${n.id}" aria-label="Borrar nota">✕</button>
       </div>
-        `;
-      }
-      return `
-      <div class="note-card">
-        <div class="note-text">
-          ${escapeHtml(n.text)}
-          <span class="note-time">${formatDate(n.createdAt)}</span>
-        </div>
-        <div class="note-actions">
-          <button class="edit-btn" onclick="startEditNote('${n.id}')" aria-label="Editar nota">✎</button>
-          <button class="del-btn" onclick="deleteNote('${n.id}')" aria-label="Borrar nota">✕</button>
-        </div>
-      </div>
-      `;
-    }).join('');
+    `).join('');
+
+    notesList.querySelectorAll('.del-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteNote(btn.getAttribute('data-del'));
+      });
+    });
+    notesList.querySelectorAll('.note-card').forEach(card => {
+      card.addEventListener('click', () => openEditor(card.getAttribute('data-note')));
+    });
   }
+
+  /* --- Note edit modal --- */
+  function openEditor(id){
+    const notes = loadNotes();
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+    editingNoteId = id;
+    noteEditable.innerHTML = note.html;
+    modalOverlay.classList.add('show');
+  }
+
+  function closeEditor(){
+    modalOverlay.classList.remove('show');
+    editingNoteId = null;
+  }
+
+  modalCancel.addEventListener('click', closeEditor);
+
+  modalSave.addEventListener('click', () => {
+    if (!editingNoteId) return;
+    const notes = loadNotes();
+    const note = notes.find(n => n.id === editingNoteId);
+    if (note) {
+      note.html = noteEditable.innerHTML;
+      saveNotes(notes);
+      renderNotes();
+    }
+    closeEditor();
+  });
+
+  boldBtn.addEventListener('click', () => {
+    noteEditable.focus();
+    document.execCommand('bold');
+  });
+
+  document.querySelectorAll('.color-dot').forEach(btn => {
+    btn.addEventListener('click', () => {
+      noteEditable.focus();
+      document.execCommand('foreColor', false, btn.getAttribute('data-value'));
+    });
+  });
+
+  document.querySelectorAll('[data-size]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      noteEditable.focus();
+      document.execCommand('fontSize', false, btn.getAttribute('data-size'));
+    });
+  });
 
   function escapeHtml(str){
     const div = document.createElement('div');
@@ -558,6 +730,7 @@
     return div.innerHTML;
   }
 
+  renderFolders();
   renderNotes();
 </script>
 

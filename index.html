@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notas de Voz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #171B2E;
+    --ink-2: #232842;
+    --ink-3: #2E3457;
+    --paper: #F4F1EA;
+    --amber: #F2A94D;
+    --amber-dim: #F2A94D33;
+    --teal: #6FCF97;
+    --red: #E76F6F;
+    --muted: #9AA0C0;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--ink);
+    color: var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 19px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding-bottom: 48px;
+  }
+  header{
+    padding: 28px 20px 18px;
+    text-align: center;
+  }
+  header h1{
+    font-family: "Jost", sans-serif;
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: 0.02em;
+    margin: 0;
+    color: var(--paper);
+  }
+  header p{
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  /* --- Mic stage --- */
+  .stage{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 20px 8px;
+  }
+  .mic-wrap{
+    position: relative;
+    width: 168px;
+    height: 168px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ring{
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--amber-dim);
+    opacity: 0;
+  }
+  .listening .ring{
+    animation: pulse 1.8s ease-out infinite;
+  }
+  .listening .ring:nth-child(2){ animation-delay: 0.6s; }
+  .listening .ring:nth-child(3){ animation-delay: 1.2s; }
+  @keyframes pulse{
+    0%{ transform: scale(0.75); opacity: 0.9; }
+    100%{ transform: scale(1.35); opacity: 0; }
+  }
+  #micBtn{
+    position: relative;
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    border: none;
+    background: var(--ink-2);
+    color: var(--amber);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px var(--ink-3) inset;
+    transition: background 0.2s, transform 0.15s;
+  }
+  #micBtn:active{ transform: scale(0.96); }
+  .listening #micBtn{
+    background: var(--amber);
+    color: var(--ink);
+  }
+  #micBtn svg{ width: 44px; height: 44px; }
+
+  .status{
+    margin-top: 18px;
+    min-height: 24px;
+    font-size: 16px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .listening .status{ color: var(--amber); font-weight: 600; }
+
+  .waveform{
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 28px;
+    margin-top: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .listening .waveform{ opacity: 1; }
+  .waveform span{
+    width: 4px;
+    background: var(--amber);
+    border-radius: 2px;
+    animation: bar 0.9s ease-in-out infinite;
+  }
+  .waveform span:nth-child(1){ animation-delay: 0s; }
+  .waveform span:nth-child(2){ animation-delay: 0.15s; }
+  .waveform span:nth-child(3){ animation-delay: 0.3s; }
+  .waveform span:nth-child(4){ animation-delay: 0.45s; }
+  .waveform span:nth-child(5){ animation-delay: 0.6s; }
+  @keyframes bar{
+    0%, 100%{ height: 6px; }
+    50%{ height: 26px; }
+  }
+
+  /* --- Review editor --- */
+  .editor{
+    margin: 18px 20px 0;
+    background: var(--ink-2);
+    border-radius: 16px;
+    padding: 16px;
+    display: none;
+  }
+  .editor.show{ display: block; }
+  .editor textarea{
+    width: 100%;
+    min-height: 110px;
+    background: transparent;
+    border: none;
+    color: var(--paper);
+    font-size: 19px;
+    font-family: inherit;
+    resize: vertical;
+    outline: none;
+  }
+  .editor-actions{
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .btn{
+    flex: 1;
+    padding: 14px 12px;
+    border-radius: 12px;
+    border: none;
+    font-size: 17px;
+    font-weight: 600;
+    font-family: inherit;
+  }
+  .btn-save{ background: var(--teal); color: var(--ink); }
+  .btn-discard{ background: transparent; color: var(--muted); border: 1px solid var(--ink-3); }
+
+  /* --- Agenda list --- */
+  .agenda{
+    margin: 28px 20px 0;
+  }
+  .agenda h2{
+    font-family: "Jost", sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 12px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .note-card{
+    background: var(--ink-2);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .note-text{
+    flex: 1;
+    font-size: 18px;
+  }
+  .note-time{
+    display: block;
+    color: var(--amber);
+    font-size: 14px;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+  .del-btn{
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 4px;
+    font-size: 20px;
+    line-height: 1;
+  }
+  .del-btn:active{ color: var(--red); }
+
+  .empty{
+    color: var(--muted);
+    text-align: center;
+    padding: 30px 20px;
+    font-size: 16px;
+  }
+
+  .unsupported{
+    margin: 20px;
+    background: var(--red);
+    color: var(--ink);
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-size: 15px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Notas de Voz</h1>
+  <p>Toca el micrófono y dicta tu nota</p>
+</header>
+
+<div id="unsupported" class="unsupported">
+  Este navegador no admite dictado por voz. Prueba con Chrome en Android.
+</div>
+
+<div class="stage" id="stage">
+  <div class="mic-wrap">
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <button id="micBtn" aria-label="Grabar nota de voz">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="8" y1="23" x2="16" y2="23"></line>
+      </svg>
+    </button>
+  </div>
+  <div class="status" id="status">Toca para empezar a hablar</div>
+  <div class="waveform">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+</div>
+
+<div class="editor" id="editor">
+  <textarea id="transcriptBox" placeholder="Aquí aparecerá lo que dictes..."></textarea>
+  <div class="editor-actions">
+    <button class="btn btn-discard" id="discardBtn">Descartar</button>
+    <button class="btn btn-save" id="saveBtn">Guardar nota</button>
+  </div>
+</div>
+
+<div class="agenda">
+  <h2>Tus notas</h2>
+  <div id="notesList"></div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'voicenotes_v1';
+  const stage = document.getElementById('stage');
+  const micBtn = document.getElementById('micBtn');
+  const statusEl = document.getElementById('status');
+  const editor = document.getElementById('editor');
+  const transcriptBox = document.getElementById('transcriptBox');
+  const saveBtn = document.getElementById('saveBtn');
+  const discardBtn = document.getElementById('discardBtn');
+  const notesList = document.getElementById('notesList');
+  const unsupported = document.getElementById('unsupported');
+
+  let recognition = null;
+  let listening = false;
+  let finalTranscript = '';
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost';
+
+  if (!SpeechRecognition) {
+    unsupported.textContent = 'Este navegador no admite dictado por voz. Prueba con Chrome en Android.';
+    unsupported.style.display = 'block';
+    micBtn.disabled = true;
+  } else if (!isSecure) {
+    unsupported.textContent = 'El micrófono solo funciona si esta página se abre por https (por ejemplo, subida a GitHub Pages). Ahora mismo se ha abierto como archivo local y el reconocimiento de voz no podrá activarse.';
+    unsupported.style.display = 'block';
+  } else {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += chunk + ' ';
+        } else {
+          interim += chunk;
+        }
+      }
+      statusEl.textContent = (finalTranscript + interim).trim() || 'Escuchando...';
+    };
+
+    recognition.onerror = (event) => {
+      let msg = 'No se ha entendido, inténtalo de nuevo';
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        msg = 'Permiso de micrófono denegado. Revisa los permisos del sitio en Chrome.';
+      } else if (event.error === 'audio-capture') {
+        msg = 'No se encuentra ningún micrófono disponible.';
+      } else if (event.error === 'network') {
+        msg = 'Sin conexión. El dictado por voz necesita internet.';
+      } else if (event.error === 'no-speech') {
+        msg = 'No se ha captado ninguna voz. Inténtalo de nuevo.';
+      }
+      statusEl.textContent = msg;
+      listening = false;
+      stage.classList.remove('listening');
+    };
+
+    recognition.onend = () => {
+      if (listening) {
+        // el navegador a veces corta solo; si el usuario no ha pulsado stop, reiniciamos
+        try { recognition.start(); } catch(e) {}
+      }
+    };
+  }
+
+  function startListening(){
+    finalTranscript = '';
+    editor.classList.remove('show');
+    listening = true;
+    stage.classList.add('listening');
+    statusEl.textContent = 'Escuchando...';
+    try { recognition.start(); } catch(e) {}
+  }
+
+  function stopListening(){
+    listening = false;
+    stage.classList.remove('listening');
+    try { recognition.stop(); } catch(e) {}
+    const text = finalTranscript.trim();
+    if (text) {
+      transcriptBox.value = text;
+      editor.classList.add('show');
+      statusEl.textContent = 'Revisa tu nota abajo';
+    } else {
+      statusEl.textContent = 'Toca para empezar a hablar';
+    }
+  }
+
+  micBtn.addEventListener('click', () => {
+    if (!SpeechRecognition) return;
+    if (listening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  });
+
+  discardBtn.addEventListener('click', () => {
+    editor.classList.remove('show');
+    transcriptBox.value = '';
+    statusEl.textContent = 'Toca para empezar a hablar';
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const text = transcriptBox.value.trim();
+    if (!text) return;
+    const notes = loadNotes();
+    notes.unshift({
+      id: Date.now().toString(),
+      text: text,
+      createdAt: new Date().toISOString()
+    });
+    saveNotes(notes);
+    renderNotes();
+    editor.classList.remove('show');
+    transcriptBox.value = '';
+    statusEl.textContent = 'Nota guardada';
+    setTimeout(() => {
+      if (!listening) statusEl.textContent = 'Toca para empezar a hablar';
+    }, 1800);
+  });
+
+  function loadNotes(){
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    } catch(e) {
+      return [];
+    }
+  }
+
+  function saveNotes(notes){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+  }
+
+  function deleteNote(id){
+    const notes = loadNotes().filter(n => n.id !== id);
+    saveNotes(notes);
+    renderNotes();
+  }
+
+  function formatDate(iso){
+    const d = new Date(iso);
+    const today = new Date();
+    const isToday = d.toDateString() === today.toDateString();
+    const time = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    if (isToday) return `Hoy, ${time}`;
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) + `, ${time}`;
+  }
+
+  function renderNotes(){
+    const notes = loadNotes();
+    if (notes.length === 0) {
+      notesList.innerHTML = '<div class="empty">Todavía no has dictado ninguna nota</div>';
+      return;
+    }
+    notesList.innerHTML = notes.map(n => `
+      <div class="note-card">
+        <div class="note-text">
+          ${escapeHtml(n.text)}
+          <span class="note-time">${formatDate(n.createdAt)}</span>
+        </div>
+        <button class="del-btn" onclick="deleteNote('${n.id}')" aria-label="Borrar nota">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  renderNotes();
+</script>
+
+</body>
+</html>

@@ -289,8 +289,10 @@
   const unsupported = document.getElementById('unsupported');
 
   let recognition = null;
-  let listening = false;
-  let finalTranscript = '';
+  let listening = false;       // el usuario quiere seguir escuchando (botón activo)
+  let sessionActive = false;   // hay una sesión de reconocimiento en curso ahora mismo
+  let finalTranscript = '';    // texto final acumulado entre sesiones
+  let stoppedByUser = false;   // para distinguir "paro yo" de "paró solo"
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -306,25 +308,31 @@
   } else {
     recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
-    recognition.continuous = true;
+    // En Android, "continuous = true" hace que el motor reinicie la
+    // transcripción internamente cada pocos segundos y repita frases ya
+    // dichas. Por eso usamos continuous = false y reiniciamos nosotros
+    // mismos frase a frase (ver onend más abajo), acumulando el texto.
+    recognition.continuous = false;
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
-      let final = '';
       let interim = '';
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const chunk = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          final += chunk + ' ';
+          finalTranscript += chunk + ' ';
         } else {
           interim += chunk;
         }
       }
-      finalTranscript = final;
       statusEl.textContent = (finalTranscript + interim).trim() || 'Escuchando...';
     };
 
     recognition.onerror = (event) => {
+      if (event.error === 'no-speech' || event.error === 'aborted') {
+        // Silencio breve: no es un error real, dejamos que onend decida si reiniciar.
+        return;
+      }
       let msg = 'No se ha entendido, inténtalo de nuevo';
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         msg = 'Permiso de micrófono denegado. Revisa los permisos del sitio en Chrome.';
@@ -332,8 +340,6 @@
         msg = 'No se encuentra ningún micrófono disponible.';
       } else if (event.error === 'network') {
         msg = 'Sin conexión. El dictado por voz necesita internet.';
-      } else if (event.error === 'no-speech') {
-        msg = 'No se ha captado ninguna voz. Inténtalo de nuevo.';
       }
       statusEl.textContent = msg;
       listening = false;
@@ -341,35 +347,25 @@
     };
 
     recognition.onend = () => {
-      // El reconocimiento ha terminado por sí solo (silencio prolongado).
-      if (listening) {
-        listening = false;
-        stage.classList.remove('listening');
-        const text = finalTranscript.trim();
-        if (text) {
-          transcriptBox.value = text;
-          editor.classList.add('show');
-          statusEl.textContent = 'Revisa tu nota abajo';
-        } else {
-          statusEl.textContent = 'Toca para empezar a hablar';
+      sessionActive = false;
+      if (listening && !stoppedByUser) {
+        // El usuario sigue queriendo dictar: relanzamos una nueva sesión
+        // (esto simula "continuo" de forma segura, sin repeticiones).
+        try {
+          recognition.start();
+          sessionActive = true;
+        } catch (e) {
+          finishAndShowEditor();
         }
+      } else if (listening && stoppedByUser) {
+        finishAndShowEditor();
       }
     };
   }
 
-  function startListening(){
-    finalTranscript = '';
-    editor.classList.remove('show');
-    listening = true;
-    stage.classList.add('listening');
-    statusEl.textContent = 'Escuchando...';
-    try { recognition.start(); } catch(e) {}
-  }
-
-  function stopListening(){
+  function finishAndShowEditor(){
     listening = false;
     stage.classList.remove('listening');
-    try { recognition.stop(); } catch(e) {}
     const text = finalTranscript.trim();
     if (text) {
       transcriptBox.value = text;
@@ -377,6 +373,29 @@
       statusEl.textContent = 'Revisa tu nota abajo';
     } else {
       statusEl.textContent = 'Toca para empezar a hablar';
+    }
+  }
+
+  function startListening(){
+    finalTranscript = '';
+    editor.classList.remove('show');
+    listening = true;
+    stoppedByUser = false;
+    stage.classList.add('listening');
+    statusEl.textContent = 'Escuchando...';
+    try {
+      recognition.start();
+      sessionActive = true;
+    } catch(e) {}
+  }
+
+  function stopListening(){
+    stoppedByUser = true;
+    if (sessionActive) {
+      try { recognition.stop(); } catch(e) {}
+      // finishAndShowEditor() se llamará desde onend
+    } else {
+      finishAndShowEditor();
     }
   }
 

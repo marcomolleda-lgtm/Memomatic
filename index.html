@@ -445,13 +445,8 @@
     <div class="note-editable" id="noteEditable" contenteditable="true"></div>
     <div class="toolbar">
       <button class="tool-btn bold-b" id="boldBtn" type="button">N</button>
-      <button class="tool-btn color-dot" data-color="paper" data-value="#26272C" type="button" aria-label="Color texto normal"></button>
-      <button class="tool-btn color-dot" data-color="amber" data-value="#D98A2B" type="button" aria-label="Color ámbar"></button>
-      <button class="tool-btn color-dot" data-color="teal" data-value="#1FAE7A" type="button" aria-label="Color verde"></button>
-      <button class="tool-btn color-dot" data-color="red" data-value="#D14D4D" type="button" aria-label="Color rojo"></button>
-      <button class="tool-btn" data-size="2" type="button">A-</button>
-      <button class="tool-btn" data-size="3" type="button">A</button>
-      <button class="tool-btn" data-size="5" type="button">A+</button>
+      <button class="tool-btn color-dot" data-color="paper" data-value="#26272C" type="button" aria-label="Texto negro"></button>
+      <button class="tool-btn color-dot" data-color="red" data-value="#D14D4D" type="button" aria-label="Texto rojo"></button>
     </div>
     <div class="folder-select-row">
       <label for="moveFolderSelect">Carpeta:</label>
@@ -651,21 +646,57 @@
     localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
   }
 
+  let longPressTriggered = false;
+  let pressTimer = null;
+
   function renderFolders(){
     const folders = loadFolders();
     const chips = [...folders];
     foldersRow.innerHTML = chips.map(f => `
-      <button class="folder-chip ${f.id === activeFolderId ? 'active' : ''}" data-folder="${f.id}">${escapeHtml(f.name)}</button>
+      <button class="folder-chip ${f.id === activeFolderId ? 'active' : ''}" data-folder="${f.id}" data-name="${escapeHtml(f.name)}">${escapeHtml(f.name)}</button>
     `).join('') + '<button class="folder-add" id="addFolderBtn" aria-label="Nueva carpeta">+</button>';
 
     foldersRow.querySelectorAll('.folder-chip').forEach(chip => {
+      const start = () => {
+        longPressTriggered = false;
+        pressTimer = setTimeout(() => {
+          longPressTriggered = true;
+          confirmDeleteFolder(chip.getAttribute('data-folder'), chip.getAttribute('data-name'));
+        }, 600);
+      };
+      const cancel = () => clearTimeout(pressTimer);
+
+      chip.addEventListener('touchstart', start);
+      chip.addEventListener('touchend', cancel);
+      chip.addEventListener('touchmove', cancel);
+      chip.addEventListener('mousedown', start);
+      chip.addEventListener('mouseup', cancel);
+      chip.addEventListener('mouseleave', cancel);
+
       chip.addEventListener('click', () => {
+        if (longPressTriggered) { longPressTriggered = false; return; }
         activeFolderId = chip.getAttribute('data-folder');
         renderFolders();
         renderNotes();
       });
     });
     document.getElementById('addFolderBtn').addEventListener('click', addFolder);
+  }
+
+  function confirmDeleteFolder(id, name){
+    if (id === 'default') {
+      window.alert('La carpeta "Por defecto" no se puede eliminar.');
+      return;
+    }
+    const ok = window.confirm(`¿Eliminar la carpeta "${name}"? Sus notas pasarán a "Por defecto".`);
+    if (!ok) return;
+    const notes = loadNotes().map(n => (n.folderId === id ? { ...n, folderId: 'default' } : n));
+    saveNotes(notes);
+    const folders = loadFolders().filter(f => f.id !== id);
+    saveFolders(folders);
+    if (activeFolderId === id) activeFolderId = 'default';
+    renderFolders();
+    renderNotes();
   }
 
   function addFolder(){
@@ -780,13 +811,6 @@
     btn.addEventListener('click', () => {
       noteEditable.focus();
       document.execCommand('foreColor', false, btn.getAttribute('data-value'));
-    });
-  });
-
-  document.querySelectorAll('[data-size]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      noteEditable.focus();
-      document.execCommand('fontSize', false, btn.getAttribute('data-size'));
     });
   });
 

@@ -13,20 +13,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink: #171B2E;
-    --ink-2: #232842;
-    --ink-3: #2E3457;
-    --paper: #F4F1EA;
-    --amber: #F2A94D;
-    --amber-dim: #F2A94D33;
-    --teal: #6FCF97;
-    --red: #E76F6F;
-    --muted: #9AA0C0;
+    --ink: #EEEEF1;
+    --ink-2: #FFFFFF;
+    --ink-3: #DEDEE3;
+    --ink-dark: #26272C;
+    --paper: #26272C;
+    --amber: #D98A2B;
+    --amber-dim: #D98A2B55;
+    --teal: #1FAE7A;
+    --red: #D14D4D;
+    --muted: #85858F;
   }
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html,body{ margin:0; padding:0; }
   body{
-    background: var(--ink);
+    background: linear-gradient(180deg, #F7F7F9 0%, #E9E9ED 100%);
     color: var(--paper);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 19px;
@@ -100,7 +101,7 @@
   #micBtn:active{ transform: scale(0.96); }
   .listening #micBtn{
     background: var(--amber);
-    color: var(--ink);
+    color: var(--ink-dark);
   }
   #micBtn svg{ width: 44px; height: 44px; }
 
@@ -173,7 +174,7 @@
     font-weight: 600;
     font-family: inherit;
   }
-  .btn-save{ background: var(--teal); color: var(--ink); }
+  .btn-save{ background: var(--teal); color: var(--ink-dark); }
   .btn-discard{ background: transparent; color: var(--muted); border: 1px solid var(--ink-3); }
 
   /* --- Folders --- */
@@ -209,7 +210,7 @@
   }
   .folder-chip.active{
     background: var(--amber);
-    color: var(--ink);
+    color: var(--ink-dark);
     border-color: var(--amber);
   }
   .folder-add{
@@ -380,7 +381,7 @@
   .unsupported{
     margin: 20px;
     background: var(--red);
-    color: var(--ink);
+    color: var(--ink-dark);
     padding: 14px 16px;
     border-radius: 12px;
     font-size: 15px;
@@ -441,17 +442,17 @@
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal-sheet">
     <h3 class="modal-title">Editar nota</h3>
+    <div class="note-editable" id="noteEditable" contenteditable="true"></div>
     <div class="toolbar">
       <button class="tool-btn bold-b" id="boldBtn" type="button">N</button>
-      <button class="tool-btn color-dot" data-color="paper" data-value="#F4F1EA" type="button" aria-label="Color texto normal"></button>
-      <button class="tool-btn color-dot" data-color="amber" data-value="#F2A94D" type="button" aria-label="Color ámbar"></button>
-      <button class="tool-btn color-dot" data-color="teal" data-value="#6FCF97" type="button" aria-label="Color verde"></button>
-      <button class="tool-btn color-dot" data-color="red" data-value="#E76F6F" type="button" aria-label="Color rojo"></button>
+      <button class="tool-btn color-dot" data-color="paper" data-value="#26272C" type="button" aria-label="Color texto normal"></button>
+      <button class="tool-btn color-dot" data-color="amber" data-value="#D98A2B" type="button" aria-label="Color ámbar"></button>
+      <button class="tool-btn color-dot" data-color="teal" data-value="#1FAE7A" type="button" aria-label="Color verde"></button>
+      <button class="tool-btn color-dot" data-color="red" data-value="#D14D4D" type="button" aria-label="Color rojo"></button>
       <button class="tool-btn" data-size="2" type="button">A-</button>
       <button class="tool-btn" data-size="3" type="button">A</button>
       <button class="tool-btn" data-size="5" type="button">A+</button>
     </div>
-    <div class="note-editable" id="noteEditable" contenteditable="true"></div>
     <div class="folder-select-row">
       <label for="moveFolderSelect">Carpeta:</label>
       <select id="moveFolderSelect"></select>
@@ -486,7 +487,7 @@
   const targetFolderSelect = document.getElementById('targetFolderSelect');
   const moveFolderSelect = document.getElementById('moveFolderSelect');
 
-  let activeFolderId = 'all';
+  let activeFolderId = 'default';
   let editingNoteId = null;
 
   let recognition = null;
@@ -652,7 +653,7 @@
 
   function renderFolders(){
     const folders = loadFolders();
-    const chips = [{ id: 'all', name: 'Todas' }, ...folders];
+    const chips = [...folders];
     foldersRow.innerHTML = chips.map(f => `
       <button class="folder-chip ${f.id === activeFolderId ? 'active' : ''}" data-folder="${f.id}">${escapeHtml(f.name)}</button>
     `).join('') + '<button class="folder-add" id="addFolderBtn" aria-label="Nueva carpeta">+</button>';
@@ -704,9 +705,7 @@
 
   function renderNotes(){
     let notes = loadNotes().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    if (activeFolderId !== 'all') {
-      notes = notes.filter(n => (n.folderId || 'default') === activeFolderId);
-    }
+    notes = notes.filter(n => (n.folderId || 'default') === activeFolderId);
     if (notes.length === 0) {
       notesList.innerHTML = '<div class="empty">Todavía no hay notas aquí</div>';
       return;

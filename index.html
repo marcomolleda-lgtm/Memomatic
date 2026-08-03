@@ -482,6 +482,8 @@
   let accumulated = '';       // texto ya confirmado de sesiones anteriores (antes de una pausa)
   let sessionFinal = '';      // texto confirmado de la sesión actual
   let userStopped = false;    // true cuando el usuario ha pulsado el botón para terminar
+  let autoSaveTriggered = false; // true cuando se ha dicho la palabra clave "guardar"
+  const KEYWORD_RE = /\bs[íi]mete\b\.?\s*$/i;
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -513,6 +515,13 @@
       }
       sessionFinal = final;
       statusEl.textContent = (accumulated + sessionFinal + interim).trim() || 'Escuchando...';
+
+      if (!autoSaveTriggered && KEYWORD_RE.test(sessionFinal.trim())) {
+        autoSaveTriggered = true;
+        sessionFinal = sessionFinal.replace(KEYWORD_RE, '').trim();
+        userStopped = true;
+        try { recognition.stop(); } catch(e) {}
+      }
     };
 
     recognition.onerror = (event) => {
@@ -532,8 +541,35 @@
     };
 
     recognition.onend = () => {
-      if (userStopped) {
-        // El usuario ha pedido terminar: cerramos y mostramos la nota para revisar.
+      if (userStopped && autoSaveTriggered) {
+        // Guardado por voz: se guarda directamente en 'Por defecto', sin revisión manual.
+        listening = false;
+        stage.classList.remove('listening');
+        const text = (accumulated + sessionFinal).trim();
+        accumulated = '';
+        sessionFinal = '';
+        autoSaveTriggered = false;
+        userStopped = false;
+        if (text) {
+          const notes = loadNotes();
+          notes.unshift({
+            id: Date.now().toString(),
+            html: escapeHtml(text),
+            folderId: 'default',
+            createdAt: new Date().toISOString()
+          });
+          saveNotes(notes);
+          renderNotes();
+          statusEl.textContent = 'Nota guardada por voz';
+        } else {
+          statusEl.textContent = '';
+        }
+        // Intentamos cerrar la app. Nota: algunos navegadores no permiten cerrar
+        // pestañas/ventanas que el usuario abrió manualmente, así que si no se
+        // cierra, la app se queda simplemente en reposo (ya no escuchando).
+        setTimeout(() => { try { window.close(); } catch(e) {} }, 1200);
+      } else if (userStopped) {
+        // El usuario ha pedido terminar tocando el botón: mostramos la nota para revisar.
         listening = false;
         stage.classList.remove('listening');
         const text = (accumulated + sessionFinal).trim();
@@ -560,6 +596,7 @@
     accumulated = '';
     sessionFinal = '';
     userStopped = false;
+    autoSaveTriggered = false;
     editor.classList.remove('show');
     listening = true;
     stage.classList.add('listening');
@@ -814,6 +851,11 @@
 
   renderFolders();
   renderNotes();
+
+  // Arranque automático: en cuanto se abre la app, empieza a escuchar sola.
+  if (SpeechRecognition && isSecure) {
+    setTimeout(() => startListening(), 400);
+  }
 </script>
 
 </body>

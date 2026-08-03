@@ -483,7 +483,7 @@
   let sessionFinal = '';      // texto confirmado de la sesión actual
   let userStopped = false;    // true cuando el usuario ha pulsado el botón para terminar
   let autoSaveTriggered = false; // true cuando se ha dicho la palabra clave "guardar"
-  const KEYWORD_RE = /\bs[íi]mete\b\.?\s*$/i;
+  const KEYWORD_RE = /\bcambio\s*(y)?\s*corto\b\.?\s*$/i;
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -564,10 +564,8 @@
         } else {
           statusEl.textContent = '';
         }
-        // Intentamos cerrar la app. Nota: algunos navegadores no permiten cerrar
-        // pestañas/ventanas que el usuario abrió manualmente, así que si no se
-        // cierra, la app se queda simplemente en reposo (ya no escuchando).
-        setTimeout(() => { try { window.close(); } catch(e) {} }, 1200);
+        // No cerramos la app (el navegador no lo permite de forma fiable): se queda
+        // en reposo, ya sin escuchar, lista para que la cierres tú manualmente.
       } else if (userStopped) {
         // El usuario ha pedido terminar tocando el botón: mostramos la nota para revisar.
         listening = false;

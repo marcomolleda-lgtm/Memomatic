@@ -484,6 +484,30 @@
   let userStopped = false;    // true cuando el usuario ha pulsado el botón para terminar
   let autoSaveTriggered = false; // true cuando se ha dicho la palabra clave "guardar"
   const KEYWORD_RE = /\bcambio\s*(y)?\s*corto\b\.?\s*$/i;
+  const FOLDER_CMD_RE = /\b(?:a la carpeta|carpeta)\s+(.+?)\s*$/i;
+
+  function extractFolderCommand(text){
+    const match = text.match(FOLDER_CMD_RE);
+    if (!match) return { text: text, folderName: null };
+    const folderNameSpoken = match[1].replace(/[.,]+$/, '').trim();
+    const cleanText = text.slice(0, match.index).trim();
+    return { text: cleanText, folderName: folderNameSpoken };
+  }
+
+  function resolveFolderId(spokenName){
+    if (!spokenName) return 'default';
+    const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const target = normalize(spokenName);
+    const folders = loadFolders();
+    const existing = folders.find(f => normalize(f.name) === target);
+    if (existing) return existing.id;
+    // No existe: la creamos con el nombre tal cual se ha dicho (con mayúscula inicial).
+    const niceName = spokenName.charAt(0).toUpperCase() + spokenName.slice(1);
+    const id = 'f' + Date.now().toString();
+    folders.push({ id, name: niceName });
+    saveFolders(folders);
+    return id;
+  }
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -551,16 +575,19 @@
         autoSaveTriggered = false;
         userStopped = false;
         if (text) {
+          const { text: cleanText, folderName } = extractFolderCommand(text);
+          const folderId = resolveFolderId(folderName);
           const notes = loadNotes();
           notes.unshift({
             id: Date.now().toString(),
-            html: escapeHtml(text),
-            folderId: 'default',
+            html: escapeHtml(cleanText || text),
+            folderId: folderId,
             createdAt: new Date().toISOString()
           });
           saveNotes(notes);
+          renderFolders();
           renderNotes();
-          statusEl.textContent = 'Nota guardada por voz';
+          statusEl.textContent = folderName ? `Nota guardada por voz en "${folderName}"` : 'Nota guardada por voz';
         } else {
           statusEl.textContent = '';
         }

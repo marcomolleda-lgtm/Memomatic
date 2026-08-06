@@ -1,6 +1,6 @@
 {
-  "name": "Memomatic",
-  "short_name": "Memomatic",
+  "name": "memomatic",
+  "short_name": "memomatic",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

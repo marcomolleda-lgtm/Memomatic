@@ -688,6 +688,8 @@
   }
 
   function deleteNote(id){
+    const ok = window.confirm('¿Eliminar esta nota? No se puede deshacer.');
+    if (!ok) return;
     const notes = loadNotes().filter(n => n.id !== id);
     saveNotes(notes);
     renderNotes();

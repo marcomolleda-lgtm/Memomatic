@@ -474,7 +474,7 @@
   const targetFolderSelect = document.getElementById('targetFolderSelect');
   const moveFolderSelect = document.getElementById('moveFolderSelect');
 
-  let activeFolderId = 'default';
+  let activeFolderId = 'all';
   let editingNoteId = null;
 
   let recognition = null;
@@ -705,7 +705,7 @@
 
   function renderFolders(){
     const folders = loadFolders();
-    const chips = [...folders];
+    const chips = [{ id: 'all', name: 'Todas las notas' }, ...folders];
     foldersRow.innerHTML = chips.map(f => `
       <button class="folder-chip ${f.id === activeFolderId ? 'active' : ''}" data-folder="${f.id}" data-name="${escapeHtml(f.name)}">${escapeHtml(f.name)}</button>
     `).join('') + '<button class="folder-add" id="addFolderBtn" aria-label="Nueva carpeta">+</button>';
@@ -738,8 +738,8 @@
   }
 
   function confirmDeleteFolder(id, name){
-    if (id === 'default') {
-      window.alert('La carpeta "Por defecto" no se puede eliminar.');
+    if (id === 'default' || id === 'all') {
+      window.alert(`"${name}" no se puede eliminar.`);
       return;
     }
     const ok = window.confirm(`¿Eliminar la carpeta "${name}"? Sus notas pasarán a "Por defecto".`);
@@ -790,7 +790,9 @@
 
   function renderNotes(){
     let notes = loadNotes().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    notes = notes.filter(n => (n.folderId || 'default') === activeFolderId);
+    if (activeFolderId !== 'all') {
+      notes = notes.filter(n => (n.folderId || 'default') === activeFolderId);
+    }
     if (notes.length === 0) {
       notesList.innerHTML = '<div class="empty">Todavía no hay notas aquí</div>';
       return;

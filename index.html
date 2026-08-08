@@ -379,6 +379,27 @@
     font-family: inherit;
   }
 
+  /* --- Pantalla de carga (splash) --- */
+  #appSplash{
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity .45s ease;
+  }
+  #appSplash img{
+    width: min(58vw, 300px);
+    height: auto;
+    display: block;
+  }
+  #appSplash.splash-hide{
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .unsupported{
     margin: 20px;
     background: var(--red);
@@ -391,6 +412,10 @@
 </style>
 </head>
 <body>
+
+<div id="appSplash">
+  <img src="splash-brand.png" alt="memomatic">
+</div>
 
 <header>
   <img src="wordmark-clean.png" alt="memomatic" class="brand-title-img">
@@ -900,6 +925,25 @@
     noteEditable.addEventListener('blur', () => setTimeout(reposition, 50));
   }
   setupKeyboardAwareToolbar();
+
+  // Oculta la pantalla de carga una vez que la app está lista.
+  // Se deja un mínimo de tiempo en pantalla para que no parpadee en dispositivos rápidos.
+  (function hideSplash(){
+    const splash = document.getElementById('appSplash');
+    if (!splash) return;
+    const MIN_VISIBLE_MS = 500;
+    const start = Date.now();
+    function reveal(){
+      const elapsed = Date.now() - start;
+      const wait = Math.max(0, MIN_VISIBLE_MS - elapsed);
+      setTimeout(() => {
+        splash.classList.add('splash-hide');
+        setTimeout(() => splash.remove(), 500);
+      }, wait);
+    }
+    if (document.readyState === 'complete') reveal();
+    else window.addEventListener('load', reveal);
+  })();
 
   renderFolders();
   renderNotes();

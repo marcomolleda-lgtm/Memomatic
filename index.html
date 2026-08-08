@@ -40,7 +40,7 @@
     text-align: center;
   }
   .brand-title-img{
-    height: 40px;
+    height: 27px;
     width: auto;
   }
 
@@ -296,100 +296,113 @@
     font-size: 16px;
   }
 
-  /* --- Note edit modal --- */
+  /* --- Note edit page (pantalla completa) --- */
   .modal-overlay{
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.55);
+    background: var(--ink);
     display: none;
-    align-items: flex-end;
+    flex-direction: column;
     z-index: 50;
   }
   .modal-overlay.show{ display: flex; }
-  .modal-sheet{
-    background: var(--ink-2);
-    width: 100%;
-    max-height: 88vh;
-    border-radius: 20px 20px 0 0;
-    padding: 18px 18px 20px;
+
+  .note-topbar{
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 14px 6px;
+    flex: 0 0 auto;
   }
-  .modal-title{
-    font-family: "Jost", sans-serif;
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0 0 12px;
-  }
-  .toolbar{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .tool-btn{
-    background: var(--ink-3);
-    color: var(--paper);
-    border: none;
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 16px;
-    font-weight: 700;
-    font-family: inherit;
-  }
-  .tool-btn.bold-b{ font-weight: 900; }
-  .color-dot{
+  .icon-btn{
     width: 40px;
     height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .icon-btn.danger{ color: var(--muted); }
+  .icon-btn.danger:active{ color: var(--red); }
+
+  .modal-sheet{
+    background: transparent;
+    flex: 1;
+    padding: 6px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .note-editable{
+    flex: 1;
+    background: var(--ink-2);
+    border-radius: 14px;
+    padding: 18px;
+    font-size: 19px;
+    outline: none;
+    overflow-y: auto;
+  }
+
+  .note-bottombar{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 6px 4px;
+    flex-wrap: wrap;
+  }
+  .tool-btn{
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tool-btn.bold-b{ font-weight: 900; color: var(--paper); }
+  .color-dot{
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     border: 2px solid var(--ink-3);
     padding: 0;
   }
   .color-dot[data-color="paper"]{ background: var(--paper); }
   .color-dot[data-color="amber"]{ background: var(--amber); }
-  .color-dot[data-color="teal"]{ background: var(--teal); }
-  .color-dot[data-color="red"]{ background: var(--red); }
 
-  .note-editable{
-    flex: 1;
-    min-height: 140px;
-    background: var(--ink);
-    border-radius: 12px;
-    padding: 14px;
-    font-size: 18px;
-    outline: none;
-    overflow-y: auto;
-  }
-  .modal-actions{
-    display: flex;
-    gap: 10px;
-    margin-top: 14px;
+  .bottombar-sep{
+    width: 1px;
+    height: 22px;
+    background: var(--ink-3);
+    margin: 0 2px;
   }
 
   .folder-select-row{
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 12px;
-    font-size: 15px;
-    color: var(--muted);
+    flex: 1;
+    min-width: 0;
   }
   .folder-select-row select{
-    flex: 1;
-    background: var(--ink);
-    color: var(--paper);
-    border: 1px solid var(--ink-3);
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 16px;
-    font-family: inherit;
-  }
-  .btn-delete-note{
     width: 100%;
-    margin-top: 10px;
     background: transparent;
-    color: var(--red);
-    border: 1px solid var(--red);
+    color: var(--muted);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 4px;
+    font-size: 14px;
+    font-family: inherit;
   }
 
   .unsupported{
@@ -452,23 +465,21 @@
 </div>
 
 <div class="modal-overlay" id="modalOverlay">
+  <div class="note-topbar">
+    <button class="icon-btn" id="backBtn" aria-label="Volver">&#8592;</button>
+    <button class="icon-btn danger" id="modalDelete" aria-label="Eliminar nota">&#128465;</button>
+  </div>
   <div class="modal-sheet">
-    <h3 class="modal-title">Editar nota</h3>
     <div class="note-editable" id="noteEditable" contenteditable="true"></div>
-    <div class="toolbar">
+    <div class="note-bottombar">
       <button class="tool-btn bold-b" id="boldBtn" type="button">N</button>
       <button class="tool-btn color-dot" data-color="paper" data-value="#26272C" type="button" aria-label="Texto negro"></button>
-      <button class="tool-btn color-dot" data-color="red" data-value="#D14D4D" type="button" aria-label="Texto rojo"></button>
+      <button class="tool-btn color-dot" data-color="amber" data-value="#F28C28" type="button" aria-label="Texto naranja"></button>
+      <div class="bottombar-sep"></div>
+      <div class="folder-select-row">
+        <select id="moveFolderSelect"></select>
+      </div>
     </div>
-    <div class="folder-select-row">
-      <label for="moveFolderSelect">Carpeta:</label>
-      <select id="moveFolderSelect"></select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-discard" id="modalCancel">Cancelar</button>
-      <button class="btn btn-save" id="modalSave">Guardar cambios</button>
-    </div>
-    <button class="btn btn-delete-note" id="modalDelete">Eliminar nota</button>
   </div>
 </div>
 
@@ -488,8 +499,7 @@
   const modalOverlay = document.getElementById('modalOverlay');
   const noteEditable = document.getElementById('noteEditable');
   const boldBtn = document.getElementById('boldBtn');
-  const modalCancel = document.getElementById('modalCancel');
-  const modalSave = document.getElementById('modalSave');
+  const backBtn = document.getElementById('backBtn');
   const modalDelete = document.getElementById('modalDelete');
   const targetFolderSelect = document.getElementById('targetFolderSelect');
   const moveFolderSelect = document.getElementById('moveFolderSelect');
@@ -604,9 +614,10 @@
         if (text) {
           const { text: cleanText, folderName } = extractFolderCommand(text);
           const folderId = resolveFolderId(folderName);
+          const newId = Date.now().toString();
           const notes = loadNotes();
           notes.unshift({
-            id: Date.now().toString(),
+            id: newId,
             html: escapeHtml(cleanText || text),
             folderId: folderId,
             createdAt: new Date().toISOString()
@@ -614,12 +625,15 @@
           saveNotes(notes);
           renderFolders();
           renderNotes();
-          statusEl.textContent = folderName ? `Nota guardada por voz en "${folderName}"` : 'Nota guardada por voz';
+          statusEl.textContent = '';
+          // Abrimos la nota a pantalla completa para que puedas revisarla.
+          // Si no se toca nada en 10s, se cierra sola.
+          openEditor(newId, { autoCloseAfterVoice: true });
         } else {
           statusEl.textContent = '';
         }
-        // No cerramos la app (el navegador no lo permite de forma fiable): se queda
-        // en reposo, ya sin escuchar, lista para que la cierres tú manualmente.
+        // No cerramos la app aquí (la cuestión de cerrar se gestiona ahora desde
+        // el aviso de inactividad de la pantalla de la nota, ver openEditor).
       } else if (userStopped) {
         // El usuario ha pedido terminar tocando el botón: mostramos la nota para revisar.
         listening = false;
@@ -849,8 +863,10 @@
     });
   }
 
-  /* --- Note edit modal --- */
-  function openEditor(id){
+  /* --- Note edit page --- */
+  let inactivityTimer = null;
+
+  function openEditor(id, opts){
     const notes = loadNotes();
     const note = notes.find(n => n.id === id);
     if (!note) return;
@@ -858,16 +874,25 @@
     noteEditable.innerHTML = note.html;
     fillFolderSelect(moveFolderSelect, note.folderId || 'default');
     modalOverlay.classList.add('show');
+
+    clearTimeout(inactivityTimer);
+    if (opts && opts.autoCloseAfterVoice) {
+      inactivityTimer = setTimeout(() => {
+        saveEditor();
+        closeEditor();
+        // Intento de cerrar la app entera; si el navegador no lo permite,
+        // simplemente se queda cerrada la nota y en reposo.
+        try { window.close(); } catch(e) {}
+      }, 10000);
+      const resetTimer = () => { clearTimeout(inactivityTimer); };
+      noteEditable.addEventListener('input', resetTimer, { once: true });
+      moveFolderSelect.addEventListener('change', resetTimer, { once: true });
+      boldBtn.addEventListener('click', resetTimer, { once: true });
+      document.querySelectorAll('.color-dot').forEach(btn => btn.addEventListener('click', resetTimer, { once: true }));
+    }
   }
 
-  function closeEditor(){
-    modalOverlay.classList.remove('show');
-    editingNoteId = null;
-  }
-
-  modalCancel.addEventListener('click', closeEditor);
-
-  modalSave.addEventListener('click', () => {
+  function saveEditor(){
     if (!editingNoteId) return;
     const notes = loadNotes();
     const note = notes.find(n => n.id === editingNoteId);
@@ -877,6 +902,16 @@
       saveNotes(notes);
       renderNotes();
     }
+  }
+
+  function closeEditor(){
+    clearTimeout(inactivityTimer);
+    modalOverlay.classList.remove('show');
+    editingNoteId = null;
+  }
+
+  backBtn.addEventListener('click', () => {
+    saveEditor();
     closeEditor();
   });
 

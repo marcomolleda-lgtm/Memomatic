@@ -154,43 +154,6 @@
     50%{ height: 26px; }
   }
 
-  /* --- Review editor --- */
-  .editor{
-    margin: 18px 20px 0;
-    background: var(--ink-2);
-    border-radius: 16px;
-    padding: 16px;
-    display: none;
-  }
-  .editor.show{ display: block; }
-  .editor textarea{
-    width: 100%;
-    min-height: 110px;
-    background: transparent;
-    border: none;
-    color: var(--paper);
-    font-size: 19px;
-    font-family: inherit;
-    resize: vertical;
-    outline: none;
-  }
-  .editor-actions{
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-  }
-  .btn{
-    flex: 1;
-    padding: 14px 12px;
-    border-radius: 12px;
-    border: none;
-    font-size: 17px;
-    font-weight: 600;
-    font-family: inherit;
-  }
-  .btn-save{ background: var(--teal); color: var(--ink-dark); }
-  .btn-discard{ background: transparent; color: var(--muted); border: 1px solid var(--ink-3); }
-
   /* --- Folders --- */
   .folders-section{
     margin: 28px 20px 0;
@@ -444,17 +407,6 @@
   </div>
 </div>
 
-<div class="editor" id="editor">
-  <textarea id="transcriptBox" placeholder="Aquí aparecerá lo que dictes..."></textarea>
-  <div class="folder-select-row">
-    <label for="targetFolderSelect">Guardar en:</label>
-    <select id="targetFolderSelect"></select>
-  </div>
-  <div class="editor-actions">
-    <button class="btn btn-discard" id="discardBtn">Descartar</button>
-    <button class="btn btn-save" id="saveBtn">Guardar nota</button>
-  </div>
-</div>
 
 <div class="folders-section">
   <div class="folders-row" id="foldersRow"></div>
@@ -489,10 +441,6 @@
   const stage = document.getElementById('stage');
   const micBtn = document.getElementById('micBtn');
   const statusEl = document.getElementById('status');
-  const editor = document.getElementById('editor');
-  const transcriptBox = document.getElementById('transcriptBox');
-  const saveBtn = document.getElementById('saveBtn');
-  const discardBtn = document.getElementById('discardBtn');
   const notesList = document.getElementById('notesList');
   const unsupported = document.getElementById('unsupported');
   const foldersRow = document.getElementById('foldersRow');
@@ -501,7 +449,6 @@
   const boldBtn = document.getElementById('boldBtn');
   const backBtn = document.getElementById('backBtn');
   const modalDelete = document.getElementById('modalDelete');
-  const targetFolderSelect = document.getElementById('targetFolderSelect');
   const moveFolderSelect = document.getElementById('moveFolderSelect');
 
   let activeFolderId = 'all';
@@ -612,42 +559,22 @@
         autoSaveTriggered = false;
         userStopped = false;
         if (text) {
-          const { text: cleanText, folderName } = extractFolderCommand(text);
-          const folderId = resolveFolderId(folderName);
-          const newId = Date.now().toString();
-          const notes = loadNotes();
-          notes.unshift({
-            id: newId,
-            html: escapeHtml(cleanText || text),
-            folderId: folderId,
-            createdAt: new Date().toISOString()
-          });
-          saveNotes(notes);
-          renderFolders();
-          renderNotes();
-          statusEl.textContent = '';
-          // Abrimos la nota a pantalla completa para que puedas revisarla.
-          // Si no se toca nada en 10s, se cierra sola.
-          openEditor(newId, { autoCloseAfterVoice: true });
-        } else {
-          statusEl.textContent = '';
+          saveNewNoteAndOpen(text, { parseFolderCommand: true, autoClose: true });
         }
         // No cerramos la app aquí (la cuestión de cerrar se gestiona ahora desde
         // el aviso de inactividad de la pantalla de la nota, ver openEditor).
       } else if (userStopped) {
-        // El usuario ha pedido terminar tocando el botón: mostramos la nota para revisar.
+        // El usuario ha pedido terminar tocando el botón: guardamos y abrimos
+        // la nota a pantalla completa, igual que con "cambio y corto" pero sin
+        // el cierre automático a los 10 segundos.
         listening = false;
         stage.classList.remove('listening');
         const text = (accumulated + sessionFinal).trim();
         accumulated = '';
         sessionFinal = '';
+        statusEl.textContent = '';
         if (text) {
-          transcriptBox.value = text;
-          populateTargetFolder();
-          editor.classList.add('show');
-          statusEl.textContent = 'Revisa tu nota abajo';
-        } else {
-          statusEl.textContent = '';
+          saveNewNoteAndOpen(text, { parseFolderCommand: false, autoClose: false });
         }
       } else if (listening) {
         // Pausa detectada: guardamos lo confirmado y reiniciamos la escucha sin cerrar nada.
@@ -658,12 +585,34 @@
     };
   }
 
+  function saveNewNoteAndOpen(text, options){
+    const opts = options || {};
+    let cleanText = text;
+    let folderId = 'default';
+    if (opts.parseFolderCommand) {
+      const parsed = extractFolderCommand(text);
+      cleanText = parsed.text || text;
+      folderId = resolveFolderId(parsed.folderName);
+    }
+    const newId = Date.now().toString();
+    const notes = loadNotes();
+    notes.unshift({
+      id: newId,
+      html: escapeHtml(cleanText),
+      folderId: folderId,
+      createdAt: new Date().toISOString()
+    });
+    saveNotes(notes);
+    renderFolders();
+    renderNotes();
+    openEditor(newId, { autoCloseAfterVoice: !!opts.autoClose });
+  }
+
   function startListening(){
     accumulated = '';
     sessionFinal = '';
     userStopped = false;
     autoSaveTriggered = false;
-    editor.classList.remove('show');
     listening = true;
     statusEl.textContent = '';
     try { recognition.start(); } catch(e) {}
@@ -681,32 +630,6 @@
     } else {
       startListening();
     }
-  });
-
-  discardBtn.addEventListener('click', () => {
-    editor.classList.remove('show');
-    transcriptBox.value = '';
-    statusEl.textContent = '';
-  });
-
-  saveBtn.addEventListener('click', () => {
-    const text = transcriptBox.value.trim();
-    if (!text) return;
-    const notes = loadNotes();
-    notes.unshift({
-      id: Date.now().toString(),
-      html: escapeHtml(text),
-      folderId: targetFolderSelect.value || 'default',
-      createdAt: new Date().toISOString()
-    });
-    saveNotes(notes);
-    renderNotes();
-    editor.classList.remove('show');
-    transcriptBox.value = '';
-    statusEl.textContent = 'Nota guardada';
-    setTimeout(() => {
-      if (!listening) statusEl.textContent = '';
-    }, 1800);
   });
 
   function loadNotes(){
@@ -815,10 +738,6 @@
     selectEl.innerHTML = folders.map(f =>
       `<option value="${f.id}" ${f.id === selectedId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`
     ).join('');
-  }
-
-  function populateTargetFolder(){
-    fillFolderSelect(targetFolderSelect, 'default');
   }
 
   function formatDate(iso){

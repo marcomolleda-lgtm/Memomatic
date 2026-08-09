@@ -93,8 +93,8 @@
 
   .mic-icon-stack{
     position: relative;
-    width: 150px;
-    height: 150px;
+    width: 168px;
+    height: 168px;
     display: inline-block;
   }
   .mic-icon{
@@ -422,17 +422,9 @@
   }
   .draw-only{ display: none; }
   .modal-overlay.draw-mode .draw-only.tool-btn{ display: flex; }
-  .modal-overlay.draw-mode input.draw-only{ display: inline-block; }
   .modal-overlay.draw-mode .folder-select-row,
   .modal-overlay.draw-mode .bottombar-sep{ display: none; }
-  .draw-range{
-    width: 52px;
-    height: 28px;
-    accent-color: var(--amber);
-    background: transparent;
-    flex: 0 0 auto;
-  }
-  #undoDrawBtn, #redoDrawBtn{ font-size: 18px; }
+  #undoDrawBtn, #redoDrawBtn{ font-size: 26px; }
   .tool-btn.draw-only:disabled{ color: var(--ink-3); opacity: 0.5; }
 
   .bottombar-sep{
@@ -526,8 +518,6 @@
       <button class="tool-btn draw-b" id="drawBtn" type="button" aria-label="Dibujar">&#9998;</button>
       <button class="tool-btn draw-only" id="undoDrawBtn" type="button" aria-label="Deshacer trazo">&#8634;</button>
       <button class="tool-btn draw-only" id="redoDrawBtn" type="button" aria-label="Rehacer trazo">&#8635;</button>
-      <input class="draw-range draw-only" id="drawWidthRange" type="range" min="2" max="20" step="1" aria-label="Grosor del trazo">
-      <input class="draw-range draw-only" id="drawOpacityRange" type="range" min="10" max="100" step="5" aria-label="Opacidad del trazo">
       <div class="bottombar-sep"></div>
       <div class="folder-select-row">
         <select id="moveFolderSelect"></select>
@@ -554,16 +544,14 @@
   const drawBtn = document.getElementById('drawBtn');
   const undoDrawBtn = document.getElementById('undoDrawBtn');
   const redoDrawBtn = document.getElementById('redoDrawBtn');
-  const drawWidthRange = document.getElementById('drawWidthRange');
-  const drawOpacityRange = document.getElementById('drawOpacityRange');
   const backBtn = document.getElementById('backBtn');
   const modalDelete = document.getElementById('modalDelete');
   const moveFolderSelect = document.getElementById('moveFolderSelect');
 
   let drawMode = false;
   let drawColor = '#0F2D63';
-  let drawWidth = 5;
-  let drawOpacity = 1;
+  const DRAW_WIDTH = 2; // grosor mínimo fijo
+  const DRAW_OPACITY = 0.5; // transparencia fija al 50%
   let isDrawing = false;
   let canvasHasContent = false;
   let lastDrawX = 0, lastDrawY = 0;
@@ -571,9 +559,6 @@
   let strokes = [];
   let undoneStrokes = [];
   let drawBaseImage = null;
-
-  drawWidthRange.value = drawWidth;
-  drawOpacityRange.value = Math.round(drawOpacity * 100);
 
   let activeFolderId = 'all';
   let editingNoteId = null;
@@ -968,8 +953,6 @@
       drawBtn.addEventListener('click', resetTimer, { once: true });
       undoDrawBtn.addEventListener('click', resetTimer, { once: true });
       redoDrawBtn.addEventListener('click', resetTimer, { once: true });
-      drawWidthRange.addEventListener('input', resetTimer, { once: true });
-      drawOpacityRange.addEventListener('input', resetTimer, { once: true });
       moveFolderSelect.addEventListener('change', resetTimer, { once: true });
       boldBtn.addEventListener('click', resetTimer, { once: true });
       document.querySelectorAll('.color-dot').forEach(btn => btn.addEventListener('click', resetTimer, { once: true }));
@@ -1091,7 +1074,7 @@
     isDrawing = true;
     try { noteCanvas.setPointerCapture(e.pointerId); } catch(err) {}
     const p = getCanvasPos(e);
-    currentStroke = { color: drawColor, width: drawWidth, opacity: drawOpacity, points: [p] };
+    currentStroke = { color: drawColor, width: DRAW_WIDTH, opacity: DRAW_OPACITY, points: [p] };
     lastDrawX = p.x;
     lastDrawY = p.y;
     e.preventDefault();
@@ -1146,14 +1129,6 @@
     strokes.push(undoneStrokes.pop());
     redrawCanvas();
     updateDrawHistoryButtons();
-  });
-
-  drawWidthRange.addEventListener('input', () => {
-    drawWidth = parseInt(drawWidthRange.value, 10);
-  });
-
-  drawOpacityRange.addEventListener('input', () => {
-    drawOpacity = parseInt(drawOpacityRange.value, 10) / 100;
   });
 
   function escapeHtml(str){

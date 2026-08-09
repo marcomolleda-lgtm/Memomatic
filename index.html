@@ -637,6 +637,12 @@
         sessionFinal = sessionFinal.replace(KEYWORD_RE, '').trim();
         userStopped = true;
         try { recognition.stop(); } catch(e) {}
+      } else if (!autoSaveTriggered && FOLDER_CMD_RE.test(sessionFinal.trim())) {
+        // Nombrar la carpeta ya indica que la nota se da por terminada:
+        // no hace falta decir además "cambio y corto".
+        autoSaveTriggered = true;
+        userStopped = true;
+        try { recognition.stop(); } catch(e) {}
       }
     };
 

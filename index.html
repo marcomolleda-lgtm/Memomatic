@@ -819,6 +819,8 @@
       }, 10000);
       const resetTimer = () => { clearTimeout(inactivityTimer); };
       noteEditable.addEventListener('input', resetTimer, { once: true });
+      noteEditable.addEventListener('focus', resetTimer, { once: true });
+      noteEditable.addEventListener('pointerdown', resetTimer, { once: true });
       moveFolderSelect.addEventListener('change', resetTimer, { once: true });
       boldBtn.addEventListener('click', resetTimer, { once: true });
       document.querySelectorAll('.color-dot').forEach(btn => btn.addEventListener('click', resetTimer, { once: true }));

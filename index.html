@@ -616,7 +616,6 @@
       // Aquí es cuando el micrófono está realmente activo (coincide con el aviso
       // sonoro del sistema), así que la animación visual arranca justo aquí.
       stage.classList.add('listening');
-      statusEl.textContent = 'Escuchando...';
     };
 
     recognition.onresult = (event) => {
@@ -631,7 +630,7 @@
         }
       }
       sessionFinal = final;
-      statusEl.textContent = (accumulated + sessionFinal + interim).trim() || 'Escuchando...';
+      statusEl.textContent = (accumulated + sessionFinal + interim).trim();
 
       if (!autoSaveTriggered && KEYWORD_RE.test(sessionFinal.trim())) {
         autoSaveTriggered = true;
@@ -981,6 +980,7 @@
     modalOverlay.classList.remove('show');
     exitDrawMode();
     editingNoteId = null;
+    statusEl.textContent = '';
   }
 
   backBtn.addEventListener('click', () => {

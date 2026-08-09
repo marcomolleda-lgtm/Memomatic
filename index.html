@@ -420,6 +420,20 @@
     background: var(--ink-3);
     border-radius: 8px;
   }
+  .draw-only{ display: none; }
+  .modal-overlay.draw-mode .draw-only.tool-btn{ display: flex; }
+  .modal-overlay.draw-mode input.draw-only{ display: inline-block; }
+  .modal-overlay.draw-mode .folder-select-row,
+  .modal-overlay.draw-mode .bottombar-sep{ display: none; }
+  .draw-range{
+    width: 52px;
+    height: 28px;
+    accent-color: var(--amber);
+    background: transparent;
+    flex: 0 0 auto;
+  }
+  #undoDrawBtn, #redoDrawBtn{ font-size: 18px; }
+  .tool-btn.draw-only:disabled{ color: var(--ink-3); opacity: 0.5; }
 
   .bottombar-sep{
     width: 1px;
@@ -507,9 +521,13 @@
     </div>
     <div class="note-bottombar">
       <button class="tool-btn bold-b" id="boldBtn" type="button">N</button>
-      <button class="tool-btn color-dot selected" data-color="paper" data-value="#26272C" type="button" aria-label="Texto negro"></button>
+      <button class="tool-btn color-dot selected" data-color="paper" data-value="#0F2D63" type="button" aria-label="Texto azul memomatic"></button>
       <button class="tool-btn color-dot" data-color="amber" data-value="#F28C28" type="button" aria-label="Texto naranja"></button>
       <button class="tool-btn draw-b" id="drawBtn" type="button" aria-label="Dibujar">&#9998;</button>
+      <button class="tool-btn draw-only" id="undoDrawBtn" type="button" aria-label="Deshacer trazo">&#8634;</button>
+      <button class="tool-btn draw-only" id="redoDrawBtn" type="button" aria-label="Rehacer trazo">&#8635;</button>
+      <input class="draw-range draw-only" id="drawWidthRange" type="range" min="2" max="20" step="1" aria-label="Grosor del trazo">
+      <input class="draw-range draw-only" id="drawOpacityRange" type="range" min="10" max="100" step="5" aria-label="Opacidad del trazo">
       <div class="bottombar-sep"></div>
       <div class="folder-select-row">
         <select id="moveFolderSelect"></select>
@@ -534,15 +552,28 @@
   const noteCanvas = document.getElementById('noteCanvas');
   const boldBtn = document.getElementById('boldBtn');
   const drawBtn = document.getElementById('drawBtn');
+  const undoDrawBtn = document.getElementById('undoDrawBtn');
+  const redoDrawBtn = document.getElementById('redoDrawBtn');
+  const drawWidthRange = document.getElementById('drawWidthRange');
+  const drawOpacityRange = document.getElementById('drawOpacityRange');
   const backBtn = document.getElementById('backBtn');
   const modalDelete = document.getElementById('modalDelete');
   const moveFolderSelect = document.getElementById('moveFolderSelect');
 
   let drawMode = false;
-  let drawColor = '#26272C';
+  let drawColor = '#0F2D63';
+  let drawWidth = 5;
+  let drawOpacity = 1;
   let isDrawing = false;
   let canvasHasContent = false;
   let lastDrawX = 0, lastDrawY = 0;
+  let currentStroke = null;
+  let strokes = [];
+  let undoneStrokes = [];
+  let drawBaseImage = null;
+
+  drawWidthRange.value = drawWidth;
+  drawOpacityRange.value = Math.round(drawOpacity * 100);
 
   let activeFolderId = 'all';
   let editingNoteId = null;
@@ -898,15 +929,20 @@
     // Salir del modo dibujo y preparar el lienzo para esta nota
     exitDrawMode();
     canvasHasContent = false;
-    const ctx = noteCanvas.getContext('2d');
+    strokes = [];
+    undoneStrokes = [];
+    drawBaseImage = null;
+    updateDrawHistoryButtons();
     setTimeout(() => {
       setupCanvasSize();
+      const ctx = noteCanvas.getContext('2d');
       ctx.clearRect(0, 0, noteCanvas.width, noteCanvas.height);
       if (note.drawing) {
         const img = new Image();
         img.onload = () => {
-          ctx.drawImage(img, 0, 0, noteCanvas.width, noteCanvas.height);
+          drawBaseImage = img;
           canvasHasContent = true;
+          redrawCanvas();
         };
         img.src = note.drawing;
       }
@@ -930,6 +966,10 @@
       noteTitleEditable.addEventListener('pointerdown', resetTimer, { once: true });
       noteCanvas.addEventListener('pointerdown', resetTimer, { once: true });
       drawBtn.addEventListener('click', resetTimer, { once: true });
+      undoDrawBtn.addEventListener('click', resetTimer, { once: true });
+      redoDrawBtn.addEventListener('click', resetTimer, { once: true });
+      drawWidthRange.addEventListener('input', resetTimer, { once: true });
+      drawOpacityRange.addEventListener('input', resetTimer, { once: true });
       moveFolderSelect.addEventListener('change', resetTimer, { once: true });
       boldBtn.addEventListener('click', resetTimer, { once: true });
       document.querySelectorAll('.color-dot').forEach(btn => btn.addEventListener('click', resetTimer, { once: true }));
@@ -991,7 +1031,6 @@
   });
 
   /* --- Dibujo a mano alzada sobre la nota --- */
-  const DRAW_LINE_WIDTH = 5;
 
   function setupCanvasSize(){
     const rect = noteEditableWrap.getBoundingClientRect();
@@ -1020,28 +1059,59 @@
     };
   }
 
+  function redrawCanvas(){
+    const ctx = noteCanvas.getContext('2d');
+    ctx.clearRect(0, 0, noteCanvas.width, noteCanvas.height);
+    if (drawBaseImage) {
+      ctx.drawImage(drawBaseImage, 0, 0, noteCanvas.width, noteCanvas.height);
+    }
+    strokes.forEach(s => {
+      if (s.points.length < 2) return;
+      ctx.globalAlpha = s.opacity;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(s.points[0].x, s.points[0].y);
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y);
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    canvasHasContent = !!drawBaseImage || strokes.length > 0;
+  }
+
+  function updateDrawHistoryButtons(){
+    undoDrawBtn.disabled = strokes.length === 0;
+    redoDrawBtn.disabled = undoneStrokes.length === 0;
+  }
+
   function startStroke(e){
     if (!drawMode) return;
     isDrawing = true;
     try { noteCanvas.setPointerCapture(e.pointerId); } catch(err) {}
     const p = getCanvasPos(e);
+    currentStroke = { color: drawColor, width: drawWidth, opacity: drawOpacity, points: [p] };
     lastDrawX = p.x;
     lastDrawY = p.y;
     e.preventDefault();
   }
 
   function moveStroke(e){
-    if (!drawMode || !isDrawing) return;
+    if (!drawMode || !isDrawing || !currentStroke) return;
     const p = getCanvasPos(e);
+    currentStroke.points.push(p);
     const ctx = noteCanvas.getContext('2d');
-    ctx.strokeStyle = drawColor;
-    ctx.lineWidth = DRAW_LINE_WIDTH;
+    ctx.globalAlpha = currentStroke.opacity;
+    ctx.strokeStyle = currentStroke.color;
+    ctx.lineWidth = currentStroke.width;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
     ctx.moveTo(lastDrawX, lastDrawY);
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
+    ctx.globalAlpha = 1;
     lastDrawX = p.x;
     lastDrawY = p.y;
     canvasHasContent = true;
@@ -1049,6 +1119,12 @@
   }
 
   function endStroke(e){
+    if (isDrawing && currentStroke && currentStroke.points.length > 1) {
+      strokes.push(currentStroke);
+      undoneStrokes = [];
+      updateDrawHistoryButtons();
+    }
+    currentStroke = null;
     isDrawing = false;
     try { noteCanvas.releasePointerCapture(e.pointerId); } catch(err) {}
   }
@@ -1057,6 +1133,28 @@
   noteCanvas.addEventListener('pointermove', moveStroke);
   noteCanvas.addEventListener('pointerup', endStroke);
   noteCanvas.addEventListener('pointercancel', endStroke);
+
+  undoDrawBtn.addEventListener('click', () => {
+    if (strokes.length === 0) return;
+    undoneStrokes.push(strokes.pop());
+    redrawCanvas();
+    updateDrawHistoryButtons();
+  });
+
+  redoDrawBtn.addEventListener('click', () => {
+    if (undoneStrokes.length === 0) return;
+    strokes.push(undoneStrokes.pop());
+    redrawCanvas();
+    updateDrawHistoryButtons();
+  });
+
+  drawWidthRange.addEventListener('input', () => {
+    drawWidth = parseInt(drawWidthRange.value, 10);
+  });
+
+  drawOpacityRange.addEventListener('input', () => {
+    drawOpacity = parseInt(drawOpacityRange.value, 10) / 100;
+  });
 
   function escapeHtml(str){
     const div = document.createElement('div');

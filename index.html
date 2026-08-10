@@ -569,8 +569,40 @@
   let sessionFinal = '';      // texto confirmado de la sesión actual
   let userStopped = false;    // true cuando el usuario ha pulsado el botón para terminar
   let autoSaveTriggered = false; // true cuando se ha dicho la palabra clave "guardar"
+  let cancelTriggered = false;   // true cuando se ha dicho "cancelar"
+  let waitingTimeoutTriggered = false; // true cuando expiran los 5s sin decir nada
+  let voiceTimer = null;
   const KEYWORD_RE = /\bcambio\s*(y)?\s*corto\b\.?\s*$/i;
   const FOLDER_CMD_RE = /\b(?:a la carpeta|carpeta)\s+(.+?)\s*$/i;
+  const CANCEL_RE = /\b(cancelar|cancela|descartar(?:\s+nota)?)\b\.?\s*$/i;
+
+  function speak(text){
+    if (!('speechSynthesis' in window)) return null;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'es-ES';
+      window.speechSynthesis.speak(u);
+      return u;
+    } catch(e) { return null; }
+  }
+
+  function armWaitingTimer(){
+    clearTimeout(voiceTimer);
+    voiceTimer = setTimeout(() => {
+      waitingTimeoutTriggered = true;
+      try { recognition.stop(); } catch(e) {}
+    }, 5000);
+  }
+
+  function armDictationTimer(){
+    clearTimeout(voiceTimer);
+    voiceTimer = setTimeout(() => {
+      autoSaveTriggered = true;
+      userStopped = true;
+      try { recognition.stop(); } catch(e) {}
+    }, 15000);
+  }
 
   function extractFolderCommand(text){
     const match = text.match(FOLDER_CMD_RE);
@@ -616,6 +648,8 @@
       // Aquí es cuando el micrófono está realmente activo (coincide con el aviso
       // sonoro del sistema), así que la animación visual arranca justo aquí.
       stage.classList.add('listening');
+      const hasContent = (accumulated + sessionFinal).trim().length > 0;
+      if (hasContent) armDictationTimer(); else armWaitingTimer();
     };
 
     recognition.onresult = (event) => {
@@ -632,12 +666,18 @@
       sessionFinal = final;
       statusEl.textContent = (accumulated + sessionFinal + interim).trim();
 
-      if (!autoSaveTriggered && KEYWORD_RE.test(sessionFinal.trim())) {
+      const hasContent = (accumulated + sessionFinal + interim).trim().length > 0;
+      if (hasContent) armDictationTimer(); else armWaitingTimer();
+
+      if (!autoSaveTriggered && !cancelTriggered && CANCEL_RE.test(sessionFinal.trim())) {
+        cancelTriggered = true;
+        try { recognition.stop(); } catch(e) {}
+      } else if (!autoSaveTriggered && !cancelTriggered && KEYWORD_RE.test(sessionFinal.trim())) {
         autoSaveTriggered = true;
         sessionFinal = sessionFinal.replace(KEYWORD_RE, '').trim();
         userStopped = true;
         try { recognition.stop(); } catch(e) {}
-      } else if (!autoSaveTriggered && FOLDER_CMD_RE.test(sessionFinal.trim())) {
+      } else if (!autoSaveTriggered && !cancelTriggered && FOLDER_CMD_RE.test(sessionFinal.trim())) {
         // Nombrar la carpeta ya indica que la nota se da por terminada:
         // no hace falta decir además "cambio y corto".
         autoSaveTriggered = true;
@@ -663,39 +703,62 @@
     };
 
     recognition.onend = () => {
-      if (userStopped && autoSaveTriggered) {
-        // Guardado por voz: se guarda directamente en 'Por defecto', sin revisión manual.
-        listening = false;
-        stage.classList.remove('listening');
+      clearTimeout(voiceTimer);
+      const wasWaitingTimeout = waitingTimeoutTriggered;
+      const wasCancel = cancelTriggered;
+      const wasVoiceSave = userStopped && autoSaveTriggered;
+      const wasManualStop = userStopped && !autoSaveTriggered && !cancelTriggered && !waitingTimeoutTriggered;
+
+      waitingTimeoutTriggered = false;
+      cancelTriggered = false;
+      userStopped = false;
+      autoSaveTriggered = false;
+      listening = false;
+      stage.classList.remove('listening');
+
+      if (wasWaitingTimeout) {
+        // 5s sin decir nada desde que se abrió/reanudó la escucha: paramos y avisamos.
+        statusEl.textContent = '';
+        speak('Cierro escucha');
+        return;
+      }
+
+      if (wasCancel) {
+        // Se ha dicho "cancelar": descartamos, avisamos, y reabrimos 5s de escucha.
+        accumulated = '';
+        sessionFinal = '';
+        statusEl.textContent = '';
+        const utter = speak('Nota cancelada');
+        if (utter) utter.onend = () => startListening();
+        else startListening();
+        return;
+      }
+
+      if (wasVoiceSave) {
+        // Guardado por voz: por palabra clave, por carpeta nombrada, o por
+        // haberse cumplido el límite de 15s de silencio mientras se dictaba.
         const text = (accumulated + sessionFinal).trim();
         accumulated = '';
         sessionFinal = '';
-        autoSaveTriggered = false;
-        userStopped = false;
-        if (text) {
-          saveNewNoteAndOpen(text, { parseFolderCommand: true, autoClose: true });
-        }
-        // No cerramos la app aquí (la cuestión de cerrar se gestiona ahora desde
-        // el aviso de inactividad de la pantalla de la nota, ver openEditor).
-      } else if (userStopped) {
+        if (text) saveNewNoteAndOpen(text, { parseFolderCommand: true, autoClose: true });
+        return;
+      }
+
+      if (wasManualStop) {
         // El usuario ha pedido terminar tocando el botón: guardamos y abrimos
-        // la nota a pantalla completa, igual que con "cambio y corto" pero sin
-        // el cierre automático a los 10 segundos.
-        listening = false;
-        stage.classList.remove('listening');
+        // la nota a pantalla completa, sin el cierre automático a los 10 segundos.
         const text = (accumulated + sessionFinal).trim();
         accumulated = '';
         sessionFinal = '';
         statusEl.textContent = '';
-        if (text) {
-          saveNewNoteAndOpen(text, { parseFolderCommand: false, autoClose: false });
-        }
-      } else if (listening) {
-        // Pausa detectada: guardamos lo confirmado y reiniciamos la escucha sin cerrar nada.
-        accumulated += sessionFinal;
-        sessionFinal = '';
-        try { recognition.start(); } catch(e) {}
+        if (text) saveNewNoteAndOpen(text, { parseFolderCommand: false, autoClose: false });
+        return;
       }
+
+      // Pausa detectada en mitad del dictado: reiniciamos la escucha sin cerrar nada.
+      accumulated += sessionFinal;
+      sessionFinal = '';
+      try { recognition.start(); } catch(e) {}
     };
   }
 
@@ -703,10 +766,12 @@
     const opts = options || {};
     let cleanText = text;
     let folderId = 'default';
+    let folderNameSpoken = null;
     if (opts.parseFolderCommand) {
       const parsed = extractFolderCommand(text);
       cleanText = parsed.text || text;
-      folderId = resolveFolderId(parsed.folderName);
+      folderNameSpoken = parsed.folderName;
+      folderId = resolveFolderId(folderNameSpoken);
     }
     const newId = Date.now().toString();
     const notes = loadNotes();
@@ -720,6 +785,7 @@
     saveNotes(notes);
     renderFolders();
     renderNotes();
+    speak(folderNameSpoken ? `Nota guardada en ${folderNameSpoken}` : 'Nota guardada');
     openEditor(newId, { autoCloseAfterVoice: !!opts.autoClose });
   }
 
@@ -728,6 +794,9 @@
     sessionFinal = '';
     userStopped = false;
     autoSaveTriggered = false;
+    cancelTriggered = false;
+    waitingTimeoutTriggered = false;
+    clearTimeout(voiceTimer);
     listening = true;
     statusEl.textContent = '';
     try { recognition.start(); } catch(e) {}
@@ -943,9 +1012,10 @@
       inactivityTimer = setTimeout(() => {
         saveEditor();
         closeEditor();
-        // Intento de cerrar la app entera; si el navegador no lo permite,
-        // simplemente se queda cerrada la nota y en reposo.
-        try { window.close(); } catch(e) {}
+        const utter = speak('Cerrando la aplicación');
+        const doClose = () => { try { window.close(); } catch(e) {} };
+        if (utter) utter.onend = doClose;
+        else doClose();
       }, 10000);
       const resetTimer = () => { clearTimeout(inactivityTimer); };
       noteEditable.addEventListener('input', resetTimer, { once: true });
